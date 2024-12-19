@@ -43,7 +43,13 @@ docker run --rm -it \
 ```
 
 3. 諸々確認します
-4. GitHub へプルリクエストを行います
+4. ビルドテストを実行します
+
+```sh
+act -j build-and-push
+```
+
+5. GitHub へプルリクエストを行います
 
 ## Contact
 
