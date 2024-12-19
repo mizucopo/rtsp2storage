@@ -1,0 +1,25 @@
+# ビルドステージ
+FROM alpine:3.21 AS builder
+
+RUN apk add --no-cache \
+    tzdata \
+  && cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime \
+  && echo "Asia/Tokyo" > /etc/timezone
+
+
+# 実行ステージ
+FROM alpine:3.21
+
+COPY --from=builder /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+COPY --from=builder /etc/timezone /etc/timezone
+
+RUN apk add --no-cache \
+    ffmpeg
+
+WORKDIR /videos
+
+ENV RTSP_URL=rtsp://example.com/live \
+    SEGMENT_TIME=60 \
+    SEGMENT_WRAP=10
+
+CMD sh -c "ffmpeg -i ${RTSP_URL} -c copy -f segment -segment_time ${SEGMENT_TIME} -segment_wrap ${SEGMENT_WRAP} /videos/output_%08d.mp4"
