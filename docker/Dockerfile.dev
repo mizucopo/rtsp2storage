@@ -1,0 +1,3 @@
+FROM mizucopo/rtsp2storage:latest
+
+CMD ["ffmpeg", "-version"]
