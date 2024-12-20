@@ -16,10 +16,12 @@ COPY --from=builder /etc/timezone /etc/timezone
 RUN apk add --no-cache \
     ffmpeg
 
+ADD ./ffmpeg.sh /ffmpeg.sh
+
 WORKDIR /videos
 
 ENV RTSP_URL=rtsp://example.com/live \
     SEGMENT_TIME=60 \
     SEGMENT_WRAP=10
 
-CMD sh -c "ffmpeg -i ${RTSP_URL} -c copy -f segment -segment_time ${SEGMENT_TIME} -segment_wrap ${SEGMENT_WRAP} -reset_timestamps 1 -movflags +faststart /videos/output_%08d.mp4"
+CMD ["/bin/sh", "/ffmpeg.sh"]
