@@ -122,3 +122,4 @@ __pypackages__/
 
 # Original Additions
 .secrets
+/videos/
