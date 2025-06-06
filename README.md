@@ -16,6 +16,7 @@ docker pull mizucopo/rtsp2storage:latest
 docker run --rm -d \
   -v $(pwd)/videos:/videos \
   -e RTSP_URL="rtsp://example.com/live0" \
+  -e SEGMENT_TIME=3600 \
   mizucopo/rtsp2storage:latest
 ```
 
@@ -34,6 +35,7 @@ docker compose build dev
 docker run --rm -it \
   -v $(pwd)/videos:/videos \
   -e RTSP_URL="rtsp://example.com/live0" \
+  -e SEGMENT_TIME=3600 \
   mizucopo/rtsp2storage:develop \
   /bin/sh
 ```
