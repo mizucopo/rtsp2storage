@@ -69,4 +69,4 @@ jobs:
           body: |
             VERSION: ${{ steps.vars.outputs.version }}
             Docker image:
-              ${{ steps.repo.outputs.image }}:${{ steps.vars.outputs.version }}
+              [${{ steps.repo.outputs.image }}:${{ steps.vars.outputs.version }}](https://hub.docker.com/r/${{ steps.repo.outputs.image }})
