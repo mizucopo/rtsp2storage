@@ -6,6 +6,9 @@ name: Build and Push Docker image
     branches: ["main"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -42,6 +45,20 @@ jobs:
           tags: |
             ${{ steps.repo.outputs.image }}:latest
             ${{ steps.repo.outputs.image }}:${{ steps.vars.outputs.version }}
+
+      - name: Git ユーザー設定
+        run: |
+          git config user.name "mizu"
+          git config user.email "mizu.copo@gmail.com"
+
+      - name: タグを作成してプッシュ
+        run: |
+          git fetch --tags
+          if ! git rev-parse ${{ steps.vars.outputs.version }} >/dev/null 2>&1
+          then
+            git tag ${{ steps.vars.outputs.version }}
+            git push origin ${{ steps.vars.outputs.version }}
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
