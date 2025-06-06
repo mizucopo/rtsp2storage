@@ -20,6 +20,7 @@ ADD ./ffmpeg.sh /ffmpeg.sh
 
 WORKDIR /videos
 
-ENV RTSP_URL=rtsp://example.com/live
+ENV RTSP_URL=rtsp://example.com/live \
+    SEGMENT_TIME=3600
 
 CMD ["/bin/sh", "/ffmpeg.sh"]
