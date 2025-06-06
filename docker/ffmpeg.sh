@@ -1,25 +1,28 @@
 #!/bin/sh
 
+# 設定
 OUTPUT_DIR="/videos"
+YEARS=10
 
-LAST_FILE=$(ls -t "$OUTPUT_DIR"/output_*.mp4 2>/dev/null | head -n 1)
+# 日数を計算（年数 × 365 + うるう年補正）
+DAYS=$(($YEARS * 365 + $YEARS / 4))
 
-if [ -n "$LAST_FILE" ]; then
-    LAST_NUMBER=$(echo "$LAST_FILE" | grep -oE '_[0-9]+\.')
-    STRIPPED_NUMBER=$(echo "$LAST_NUMBER" | sed 's/^_0*//' | sed 's/\.//')
-    [ -z "$STRIPPED_NUMBER" ] && STRIPPED_NUMBER=0
-    NEXT_NUMBER=$((STRIPPED_NUMBER + 1))
-else
-    NEXT_NUMBER=0
-fi
+# ディレクトリの作成
+start_date=$(date +%Y-%m-%d)
+i=0
+while [ $i -lt $DAYS ]; do
+    folder_date=$(date -d "$start_date + $i days" +%Y/%m/%d 2>/dev/null || date -v+${i}d -j -f %Y-%m-%d $start_date +%Y/%m/%d)
+    mkdir -p "$OUTPUT_DIR/$folder_date"
+    i=$(($i + 1))
+done
 
+# ffmpegの実行
 ffmpeg \
     -i ${RTSP_URL} \
     -c copy \
     -f segment \
     -segment_time ${SEGMENT_TIME} \
-    -segment_wrap ${SEGMENT_WRAP} \
-    -segment_start_number ${NEXT_NUMBER} \
     -reset_timestamps 1 \
     -movflags +faststart \
-    /videos/output_%08d.mp4
+    -strftime 1 \
+    /videos/%Y/%m/%d/%H%M%S.mp4
