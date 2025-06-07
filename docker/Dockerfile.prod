@@ -14,9 +14,11 @@ COPY --from=builder /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 COPY --from=builder /etc/timezone /etc/timezone
 
 RUN apk add --no-cache \
+    coreutils \
     ffmpeg
 
 ADD ./ffmpeg.sh /ffmpeg.sh
+RUN chmod +x /ffmpeg.sh
 
 WORKDIR /videos
 
