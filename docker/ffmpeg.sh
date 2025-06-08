@@ -15,12 +15,13 @@ done
 
 # ffmpegの実行
 ffmpeg \
-    -timeout 30 \
+    -timeout 60 \
+    -rw_timeout 30000000 \
     -rtsp_transport tcp \
     -rtsp_flags prefer_tcp \
     -i "${RTSP_URL}" \
     -avoid_negative_ts make_zero \
-    -fflags +genpts \
+    -fflags +genpts+igndts \
     -c copy \
     -f segment \
     -segment_time "${SEGMENT_TIME}" \
