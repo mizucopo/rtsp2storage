@@ -15,10 +15,16 @@ done
 
 # ffmpegの実行
 ffmpeg \
+    -rtsp_transport tcp \
+    -rtsp_flags prefer_tcp \
+    -stimeout 30000000 \
     -i "${RTSP_URL}" \
+    -avoid_negative_ts make_zero \
+    -fflags +genpts \
     -c copy \
     -f segment \
     -segment_time "${SEGMENT_TIME}" \
+    -segment_format mp4 \
     -reset_timestamps 1 \
     -movflags +faststart \
     -strftime 1 \
