@@ -15,7 +15,7 @@ done
 
 # ffmpegの実行
 ffmpeg \
-    -timeout 30000000 \
+    -timeout 30 \
     -rtsp_transport tcp \
     -rtsp_flags prefer_tcp \
     -i "${RTSP_URL}" \
