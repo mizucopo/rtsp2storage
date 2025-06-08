@@ -15,9 +15,9 @@ done
 
 # ffmpegの実行
 ffmpeg \
+    -timeout 30000000 \
     -rtsp_transport tcp \
     -rtsp_flags prefer_tcp \
-    -stimeout 30000000 \
     -i "${RTSP_URL}" \
     -avoid_negative_ts make_zero \
     -fflags +genpts \
