@@ -1,21 +1,126 @@
 # ビルドステージ
 FROM alpine:3.21 AS builder
 
+# 環境変数
+ENV FFMPEG_VERSION=7.1.1
+ENV PREFIX=/usr/local
+
+# タイムゾーンのファイルを抽出
 RUN apk add --no-cache \
     tzdata \
-  && cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime \
-  && echo "Asia/Tokyo" > /etc/timezone
+    && cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime \
+    && echo "Asia/Tokyo" > /etc/timezone
+
+# 作業ディレクトリ
+WORKDIR /tmp/ffmpeg-build
+
+# 依存パッケージのインストール
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    git \
+    pkgconfig \
+    wget \
+    tar \
+    yasm \
+    nasm \
+    # 基本ライブラリ
+    zlib-dev \
+    bzip2-dev \
+    # オーディオライブラリ
+    lame-dev \
+    opus-dev \
+    libvorbis-dev \
+    libtheora-dev \
+    # ビデオライブラリ
+    x264-dev \
+    x265-dev \
+    libvpx-dev \
+    # その他のライブラリ
+    freetype-dev \
+    fontconfig-dev \
+    fribidi-dev \
+    libass-dev \
+    # 実行時に必要なパッケージ
+    && apk add --no-cache \
+    zlib \
+    bzip2 \
+    lame \
+    opus \
+    libvorbis \
+    libtheora \
+    x264-libs \
+    x265-libs \
+    libvpx \
+    freetype \
+    fontconfig \
+    fribidi \
+    libass
+
+# FFmpeg公式ソースのダウンロードと展開
+RUN wget https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz \
+    && tar -xf ffmpeg-${FFMPEG_VERSION}.tar.xz \
+    && cd ffmpeg-${FFMPEG_VERSION}
+
+# FFmpegのコンパイル設定とビルド
+RUN cd ffmpeg-${FFMPEG_VERSION} \
+    && ./configure \
+        --prefix=${PREFIX} \
+        --enable-gpl \
+        --enable-version3 \
+        --disable-debug \
+        --disable-doc \
+        --disable-ffplay \
+        --disable-avdevice \
+        --enable-shared \
+        --enable-libfontconfig \
+        --enable-libfreetype \
+        --enable-libfribidi \
+        --enable-libopus \
+        --enable-libtheora \
+        --enable-libvorbis \
+        --enable-libvpx \
+        --enable-libx264 \
+        --enable-libx265 \
+        --enable-libass \
+        --enable-postproc \
+        --enable-small \
+        --enable-stripping \
+        --enable-runtime-cpudetect \
+    && make -j$(nproc) \
+    && make install
 
 
 # 実行ステージ
 FROM alpine:3.21
 
-COPY --from=builder /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-COPY --from=builder /etc/timezone /etc/timezone
+# ライブラリパスを環境変数で設定
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
+# 実行時依存ライブラリのインストール
 RUN apk add --no-cache \
     coreutils \
-    ffmpeg
+    # FFmpeg実行時ライブラリ
+    zlib \
+    bzip2 \
+    opus \
+    libvorbis \
+    libtheora \
+    x264-libs \
+    x265-libs \
+    libvpx \
+    freetype \
+    fontconfig \
+    fribidi \
+    libass
+
+COPY --from=builder /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+COPY --from=builder /etc/timezone /etc/timezone
+COPY --from=builder /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=builder /usr/local/bin/ffprobe /usr/local/bin/ffprobe
+COPY --from=builder /usr/local/lib/libav*.so* /usr/local/lib/
+COPY --from=builder /usr/local/lib/libsw*.so* /usr/local/lib/
+COPY --from=builder /usr/local/lib/libpostproc*.so* /usr/local/lib/
 
 ADD ./ffmpeg.sh /ffmpeg.sh
 RUN chmod +x /ffmpeg.sh
