@@ -1,60 +1,81 @@
-# RTSP To Storage
+# rtsp2storage
 
-RTSP で公開されているライブ配信をファイル化します。
+RTSP ストリームを一定時間ごとの MP4 ファイルとして保存する Docker イメージです。
+映像と音声は再エンコードせずに保存します。
 
-## 利用方法
+## 必要なもの
 
-1. docker image を pull する
+- Docker
+- 接続可能な RTSP ストリームの URL
+
+## 使い方
+
+保存先のディレクトリを作成します。
 
 ```sh
-docker pull mizucopo/rtsp2storage:latest
+mkdir -p videos
 ```
 
-2. docker コンテナを立ち上げる
+コンテナを起動します。`RTSP_URL` は使用するストリームの URL に置き換えてください。
 
 ```sh
 docker run --rm -d \
-  -v $(pwd)/videos:/videos \
-  -e RTSP_URL="rtsp://example.com/live0" \
-  # Note: The default segment time in the image is 60 seconds.
-  # The example below overrides it to 3600 seconds (1 hour) for longer segments.
-  -e SEGMENT_TIME=3600 \
+  --name rtsp2storage \
+  -v "$(pwd)/videos:/videos" \
+  -e RTSP_URL="rtsp://example.com/live" \
+  -e SEGMENT_TIME="3600" \
   mizucopo/rtsp2storage:latest
 ```
 
-## 開発手順
+録画状況はコンテナのログで確認できます。
 
-1. docker image のビルドを行います
+```sh
+docker logs -f rtsp2storage
+```
+
+録画を停止するには、コンテナを停止します。
+
+```sh
+docker stop rtsp2storage
+```
+
+## 設定
+
+| 環境変数 | 説明 | 既定値 |
+| --- | --- | --- |
+| `RTSP_URL` | 録画する RTSP ストリームの URL | `rtsp://example.com/live` |
+| `SEGMENT_TIME` | 1 ファイルあたりの録画時間（秒） | `3600` |
+
+イメージ内の `RTSP_URL` はサンプル値のため、実際の URL を必ず指定してください。
+
+## 出力
+
+録画ファイルは、コンテナのタイムゾーン（Asia/Tokyo）を基準に次の形式で保存されます。
+
+```text
+videos/YYYY/MM/DD/HHMMSS.mp4
+```
+
+たとえば、2026 年 7 月 18 日 10 時 30 分に開始したファイルは
+`videos/2026/07/18/103000.mp4` に保存されます。
+
+## ソースからビルドする
+
+本番用イメージをビルドします。
 
 ```sh
 docker compose build prod
+```
+
+ビルド後は、[使い方](#使い方)と同じコマンドでローカルイメージを実行できます。
+
+開発用イメージでは、組み込まれている FFmpeg のバージョンを確認できます。
+
+```sh
 docker compose build dev
+docker compose run --rm dev
 ```
 
-2. docker コンテナを立ち上げます
+## ライセンス
 
-```sh
-docker run --rm -it \
-  -v $(pwd)/videos:/videos \
-  -e RTSP_URL="rtsp://example.com/live0" \
-  -e SEGMENT_TIME=3600 \
-  mizucopo/rtsp2storage:develop \
-  /bin/sh
-```
-
-3. 諸々確認します
-4. ビルドテストを実行します
-
-```sh
-act -j build-and-push
-```
-
-5. GitHub へプルリクエストを行います
-
-## Contact
-
-質問等は X まで ([@mizu_copo](https://twitter.com/mizu_copo)).
-
-## License
-
-This project is published under the MIT License. For more details, please refer to the [LICENSE file](/LICENSE).
+このプロジェクトは [MIT License](LICENSE) のもとで公開されています。
