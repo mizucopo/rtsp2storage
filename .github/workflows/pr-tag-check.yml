@@ -1,0 +1,145 @@
+name: PR Tag Conflict Check
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  check-tag-conflict:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        continue-on-error: true
+        run: |
+          VERSION="$(cat version)"
+          if [ -z "$VERSION" ]; then
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag exists
+        id: tag
+        if: steps.version.outcome == 'success'
+        continue-on-error: true
+        run: |
+          git fetch --tags
+          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build version tag check summary
+        id: tag-report
+        if: always()
+        run: |
+          TAG_CHECK_COMPLETED="false"
+          VERSION_SOURCE_VALIDATION_FAILED="false"
+          if [ "${{ steps.version.outcome }}" != "success" ]; then
+            VERSION_ERROR="The version could not be read, so tag availability was not checked."
+            if [ -f version_check_error.txt ]; then
+              VERSION_ERROR="$(< version_check_error.txt)"
+            fi
+            cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          ${VERSION_ERROR}
+          EOF
+          elif [ "${{ steps.tag.outcome }}" != "success" ]; then
+            cat > tag_report.md <<'EOF'
+          ## Version Tag Check ❌
+
+          The version `${{ steps.version.outputs.version }}` could not be checked against git tags.
+          EOF
+          elif [ "${{ steps.tag.outputs.exists }}" = "true" ]; then
+            TAG_CHECK_COMPLETED="true"
+            cat > tag_report.md <<'EOF'
+          ## Version Tag Check ❌
+
+          The version `${{ steps.version.outputs.version }}` already exists as a git tag.
+
+          Please update the version with a new version number before merging.
+          EOF
+          elif [ "${{ steps.tag.outputs.exists }}" = "false" ]; then
+            TAG_CHECK_COMPLETED="true"
+            cat > tag_report.md <<'EOF'
+          ## Version Tag Check ✅
+
+          The version `${{ steps.version.outputs.version }}` does not exist as a git tag.
+
+          This version is available for use.
+          EOF
+          else
+            cat > tag_report.md <<'EOF'
+          ## Version Tag Check ❌
+
+          The version `${{ steps.version.outputs.version }}` could not be checked against git tags.
+          EOF
+          fi
+
+          cat tag_report.md >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "summary<<EOF"
+            cat tag_report.md
+            echo "EOF"
+            echo "tag_check_completed=$TAG_CHECK_COMPLETED"
+            echo "version_source_validation_failed=$VERSION_SOURCE_VALIDATION_FAILED"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish version tag check
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+        uses: actions/github-script@v9
+        continue-on-error: true
+        env:
+          SUMMARY: ${{ steps.tag-report.outputs.summary }}
+          TAG_EXISTS: ${{ steps.tag.outputs.exists }}
+          TAG_CHECK_COMPLETED: ${{ steps.tag-report.outputs.tag_check_completed }}
+          VERSION_SOURCE_VALIDATION_FAILED: ${{ steps.tag-report.outputs.version_source_validation_failed }}
+        with:
+          script: |
+            const tagExists = process.env.TAG_EXISTS === "true";
+            const tagCheckCompleted = process.env.TAG_CHECK_COMPLETED === "true";
+            const versionSourceValidationFailed =
+              process.env.VERSION_SOURCE_VALIDATION_FAILED === "true";
+
+            let checkConclusion = "failure";
+            let checkTitle = "Version tag is available";
+            if (versionSourceValidationFailed) {
+              checkTitle = "Chrome extension version source validation failed";
+            } else if (tagCheckCompleted && !tagExists) {
+              checkConclusion = "success";
+            } else if (!tagCheckCompleted) {
+              checkTitle = "Version tag check could not complete";
+            } else if (tagExists) {
+              checkTitle = "Version tag already exists";
+            }
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: "Version Tag Check",
+              head_sha: context.payload.pull_request.head.sha,
+              status: "completed",
+              conclusion: checkConclusion,
+              output: {
+                title: checkTitle,
+                summary: process.env.SUMMARY,
+              },
+            });
+
+      - name: Enforce version tag availability
+        if: always() && steps.tag.outputs.exists != 'false'
+        run: exit 1

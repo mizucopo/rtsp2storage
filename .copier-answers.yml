@@ -1,0 +1,16 @@
+_commit: 3e379ad
+_src_path: git@github.com:mizucopo/repo-template.git
+author_email: mizu.copo@gmail.com
+author_name: mizu
+docker_image_name: rtsp2storage
+docker_registry: mizucopo
+use_aws_ecr: false
+use_chrome_extension: false
+use_dependabot_docker: true
+use_docker: true
+use_gh_actions_docker_release: true
+use_gh_actions_pr_tag_check: true
+use_mit_license: true
+use_python: false
+use_rust: false
+use_tauri: false
