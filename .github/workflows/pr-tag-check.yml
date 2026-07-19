@@ -43,10 +43,42 @@ jobs:
             echo "exists=false" >> "${GITHUB_OUTPUT}"
           fi
 
+      - name: Check Docker Hub tag
+        id: image
+        if: steps.version.outcome == 'success'
+        continue-on-error: true
+        env:
+          IMAGE: ${{ steps.version.outputs.image }}
+        run: |
+          set -euo pipefail
+
+          repository_path="${IMAGE%:*}"
+          namespace="${repository_path%%/*}"
+          repository="${repository_path#*/}"
+          tag="${IMAGE##*:}"
+          tag_url="https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags/${tag}"
+          http_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "${tag_url}")"
+
+          case "${http_status}" in
+            200)
+              echo "exists=true" >> "${GITHUB_OUTPUT}"
+              ;;
+            404)
+              echo "exists=false" >> "${GITHUB_OUTPUT}"
+              ;;
+            *)
+              echo "Could not inspect Docker Hub tag: ${IMAGE} (HTTP ${http_status})" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Build version tag check summary
         id: tag-report
         if: always()
         env:
+          IMAGE: ${{ steps.version.outputs.image }}
+          IMAGE_EXISTS: ${{ steps.image.outputs.exists }}
+          IMAGE_OUTCOME: ${{ steps.image.outcome }}
           RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
           TAG_EXISTS: ${{ steps.tag.outputs.exists }}
           TAG_OUTCOME: ${{ steps.tag.outcome }}
@@ -54,7 +86,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG_CHECK_COMPLETED="false"
+          RELEASE_CHECK_COMPLETED="false"
           VERSION_SOURCE_VALIDATION_FAILED="false"
 
           if [ "${VERSION_OUTCOME}" != "success" ]; then
@@ -74,30 +106,48 @@ jobs:
 
           The version ${RELEASE_TAG} could not be checked against git tags.
           EOF
-          elif [ "${TAG_EXISTS}" = "true" ]; then
-            TAG_CHECK_COMPLETED="true"
+          elif [ "${IMAGE_OUTCOME}" != "success" ]; then
             cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The Docker Hub tag ${IMAGE} could not be checked.
+          EOF
+          else
+            RELEASE_CHECK_COMPLETED="true"
+            if [ "${TAG_EXISTS}" = "true" ]; then
+              cat > tag_report.md <<EOF
           ## Version Tag Check ❌
 
           The version ${RELEASE_TAG} already exists as a git tag.
 
           Please update the version with a new version number before merging.
           EOF
-          elif [ "${TAG_EXISTS}" = "false" ]; then
-            TAG_CHECK_COMPLETED="true"
-            cat > tag_report.md <<EOF
+            elif [ "${IMAGE_EXISTS}" = "true" ]; then
+              cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The Docker Hub tag ${IMAGE} already exists.
+
+          Please update the version with a new version number before merging.
+          EOF
+            elif [ "${TAG_EXISTS}" = "false" ] && [ "${IMAGE_EXISTS}" = "false" ]; then
+              cat > tag_report.md <<EOF
           ## Version Tag Check ✅
 
           The version ${RELEASE_TAG} does not exist as a git tag.
 
+          The Docker Hub tag ${IMAGE} does not exist.
+
           This version is available for use.
           EOF
-          else
-            cat > tag_report.md <<EOF
+            else
+              RELEASE_CHECK_COMPLETED="false"
+              cat > tag_report.md <<EOF
           ## Version Tag Check ❌
 
-          The version ${RELEASE_TAG} could not be checked against git tags.
+          Release availability could not be determined for ${RELEASE_TAG}.
           EOF
+            fi
           fi
 
           cat tag_report.md >> "${GITHUB_STEP_SUMMARY}"
@@ -106,7 +156,7 @@ jobs:
             echo "summary<<EOF"
             cat tag_report.md
             echo "EOF"
-            echo "tag_check_completed=${TAG_CHECK_COMPLETED}"
+            echo "release_check_completed=${RELEASE_CHECK_COMPLETED}"
             echo "version_source_validation_failed=${VERSION_SOURCE_VALIDATION_FAILED}"
           } >> "${GITHUB_OUTPUT}"
 
@@ -116,13 +166,16 @@ jobs:
         continue-on-error: true
         env:
           SUMMARY: ${{ steps.tag-report.outputs.summary }}
+          IMAGE_EXISTS: ${{ steps.image.outputs.exists }}
           TAG_EXISTS: ${{ steps.tag.outputs.exists }}
-          TAG_CHECK_COMPLETED: ${{ steps.tag-report.outputs.tag_check_completed }}
+          RELEASE_CHECK_COMPLETED: ${{ steps.tag-report.outputs.release_check_completed }}
           VERSION_SOURCE_VALIDATION_FAILED: ${{ steps.tag-report.outputs.version_source_validation_failed }}
         with:
           script: |
+            const imageExists = process.env.IMAGE_EXISTS === "true";
             const tagExists = process.env.TAG_EXISTS === "true";
-            const tagCheckCompleted = process.env.TAG_CHECK_COMPLETED === "true";
+            const releaseCheckCompleted =
+              process.env.RELEASE_CHECK_COMPLETED === "true";
             const versionSourceValidationFailed =
               process.env.VERSION_SOURCE_VALIDATION_FAILED === "true";
 
@@ -130,12 +183,14 @@ jobs:
             let checkTitle = "Version tag is available";
             if (versionSourceValidationFailed) {
               checkTitle = "Version source validation failed";
-            } else if (tagCheckCompleted && !tagExists) {
+            } else if (releaseCheckCompleted && !tagExists && !imageExists) {
               checkConclusion = "success";
-            } else if (!tagCheckCompleted) {
-              checkTitle = "Version tag check could not complete";
+            } else if (!releaseCheckCompleted) {
+              checkTitle = "Release availability check could not complete";
             } else if (tagExists) {
               checkTitle = "Version tag already exists";
+            } else if (imageExists) {
+              checkTitle = "Docker image tag already exists";
             }
 
             await github.rest.checks.create({
@@ -151,6 +206,6 @@ jobs:
               },
             });
 
-      - name: Enforce version tag availability
-        if: always() && steps.tag.outputs.exists != 'false'
+      - name: Enforce release availability
+        if: always() && (steps.tag.outputs.exists != 'false' || steps.image.outputs.exists != 'false')
         run: exit 1

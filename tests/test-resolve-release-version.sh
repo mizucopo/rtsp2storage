@@ -40,6 +40,42 @@ fi
 
 echo "ok: unsafe version is rejected"
 
+work_dir="${test_root}/git-invalid-version"
+mkdir -p "${work_dir}"
+printf '%s\n' 'v1.lock' > "${work_dir}/version"
+
+if (
+  cd "${work_dir}"
+  IMAGE_REPOSITORY="mizucopo/rtsp2storage" \
+    GITHUB_OUTPUT="${work_dir}/github-output" \
+    "${resolver}"
+) 2> "${work_dir}/error"; then
+  echo "git-invalid version was accepted" >&2
+  exit 1
+fi
+
+grep -Fx 'version is not a valid git tag.' "${work_dir}/error" >/dev/null
+
+echo "ok: git-invalid version is rejected"
+
+work_dir="${test_root}/overlong-version"
+mkdir -p "${work_dir}"
+printf '%129s\n' '' | tr ' ' 'a' > "${work_dir}/version"
+
+if (
+  cd "${work_dir}"
+  IMAGE_REPOSITORY="mizucopo/rtsp2storage" \
+    GITHUB_OUTPUT="${work_dir}/github-output" \
+    "${resolver}"
+) 2> "${work_dir}/error"; then
+  echo "overlong version was accepted" >&2
+  exit 1
+fi
+
+grep -Fx 'version is not a valid Docker tag.' "${work_dir}/error" >/dev/null
+
+echo "ok: overlong version is rejected"
+
 work_dir="${test_root}/multiline-version"
 mkdir -p "${work_dir}"
 printf '%s\n%s\n' 'v1.2.2' 'v2.0.0' > "${work_dir}/version"

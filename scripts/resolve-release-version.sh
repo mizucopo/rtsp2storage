@@ -22,6 +22,16 @@ if [[ ! "${version}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
   exit 1
 fi
 
+if [ "${#version}" -gt 128 ]; then
+  echo "version is not a valid Docker tag." >&2
+  exit 1
+fi
+
+if ! git check-ref-format "refs/tags/${version}"; then
+  echo "version is not a valid git tag." >&2
+  exit 1
+fi
+
 {
   echo "version=${version}"
   echo "release_tag=${version}"
