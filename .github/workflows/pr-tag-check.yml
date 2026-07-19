@@ -49,28 +49,7 @@ jobs:
         continue-on-error: true
         env:
           IMAGE: ${{ steps.version.outputs.image }}
-        run: |
-          set -euo pipefail
-
-          repository_path="${IMAGE%:*}"
-          namespace="${repository_path%%/*}"
-          repository="${repository_path#*/}"
-          tag="${IMAGE##*:}"
-          tag_url="https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags/${tag}"
-          http_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "${tag_url}")"
-
-          case "${http_status}" in
-            200)
-              echo "exists=true" >> "${GITHUB_OUTPUT}"
-              ;;
-            404)
-              echo "exists=false" >> "${GITHUB_OUTPUT}"
-              ;;
-            *)
-              echo "Could not inspect Docker Hub tag: ${IMAGE} (HTTP ${http_status})" >&2
-              exit 1
-              ;;
-          esac
+        run: scripts/check-docker-hub-tag.sh
 
       - name: Check GitHub Release
         id: release
