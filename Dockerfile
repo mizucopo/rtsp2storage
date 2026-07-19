@@ -1,5 +1,5 @@
 # ビルドステージ
-FROM alpine:3.21 AS builder
+FROM alpine:3.24 AS builder
 
 # 環境変数
 ENV FFMPEG_VERSION=7.1.1
@@ -92,7 +92,7 @@ RUN cd ffmpeg-${FFMPEG_VERSION} \
 
 
 # 実行ステージ
-FROM alpine:3.21
+FROM alpine:3.24
 
 # ライブラリパスを環境変数で設定
 ENV LD_LIBRARY_PATH=/usr/local/lib
