@@ -122,7 +122,7 @@ COPY --from=builder /usr/local/lib/libav*.so* /usr/local/lib/
 COPY --from=builder /usr/local/lib/libsw*.so* /usr/local/lib/
 COPY --from=builder /usr/local/lib/libpostproc*.so* /usr/local/lib/
 
-ADD ./ffmpeg.sh /ffmpeg.sh
+ADD ./docker/ffmpeg.sh /ffmpeg.sh
 RUN chmod +x /ffmpeg.sh
 
 WORKDIR /videos

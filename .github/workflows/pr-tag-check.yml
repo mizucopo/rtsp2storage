@@ -1,0 +1,226 @@
+name: PR Tag Conflict Check
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  IMAGE_REPOSITORY: mizucopo/rtsp2storage
+
+jobs:
+  check-tag-conflict:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: version
+        continue-on-error: true
+        run: scripts/resolve-release-version.sh 2> version_check_error.txt
+
+      - name: Check if tag exists
+        id: tag
+        if: steps.version.outcome == 'success'
+        continue-on-error: true
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          git fetch --force --tags
+          if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}" >/dev/null; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Check Docker Hub tag
+        id: image
+        if: steps.version.outcome == 'success'
+        continue-on-error: true
+        env:
+          IMAGE: ${{ steps.version.outputs.image }}
+        run: scripts/check-docker-hub-tag.sh
+
+      - name: Check GitHub Release
+        id: release
+        if: steps.version.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+        run: scripts/check-github-release.sh
+
+      - name: Build version tag check summary
+        id: tag-report
+        if: always()
+        env:
+          IMAGE: ${{ steps.version.outputs.image }}
+          IMAGE_EXISTS: ${{ steps.image.outputs.exists }}
+          IMAGE_OUTCOME: ${{ steps.image.outcome }}
+          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
+          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          TAG_EXISTS: ${{ steps.tag.outputs.exists }}
+          TAG_OUTCOME: ${{ steps.tag.outcome }}
+          VERSION_OUTCOME: ${{ steps.version.outcome }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_CHECK_COMPLETED="false"
+          VERSION_SOURCE_VALIDATION_FAILED="false"
+
+          if [ "${VERSION_OUTCOME}" != "success" ]; then
+            VERSION_SOURCE_VALIDATION_FAILED="true"
+            VERSION_ERROR="The version could not be read, so tag availability was not checked."
+            if [ -s version_check_error.txt ]; then
+              VERSION_ERROR="$(< version_check_error.txt)"
+            fi
+            cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          ${VERSION_ERROR}
+          EOF
+          elif [ "${TAG_OUTCOME}" != "success" ]; then
+            cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The version ${RELEASE_TAG} could not be checked against git tags.
+          EOF
+          elif [ "${IMAGE_OUTCOME}" != "success" ]; then
+            cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The Docker Hub tag ${IMAGE} could not be checked.
+          EOF
+          elif [ "${RELEASE_OUTCOME}" != "success" ]; then
+            cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The GitHub Release ${RELEASE_TAG} could not be checked.
+          EOF
+          else
+            RELEASE_CHECK_COMPLETED="true"
+            if [ "${TAG_EXISTS}" = "true" ]; then
+              cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The version ${RELEASE_TAG} already exists as a git tag.
+
+          Please update the version with a new version number before merging.
+          EOF
+            elif [ "${RELEASE_EXISTS}" = "true" ]; then
+              cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The GitHub Release ${RELEASE_TAG} already exists.
+
+          Please update the version with a new version number before merging.
+          EOF
+            elif [ "${IMAGE_EXISTS}" = "true" ]; then
+              cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          The Docker Hub tag ${IMAGE} already exists.
+
+          Please update the version with a new version number before merging.
+          EOF
+            elif [ "${TAG_EXISTS}" = "false" ] && [ "${RELEASE_EXISTS}" = "false" ] && [ "${IMAGE_EXISTS}" = "false" ]; then
+              cat > tag_report.md <<EOF
+          ## Version Tag Check ✅
+
+          The version ${RELEASE_TAG} does not exist as a git tag.
+
+          The GitHub Release ${RELEASE_TAG} does not exist.
+
+          The Docker Hub tag ${IMAGE} does not exist.
+
+          This version is available for use.
+          EOF
+            else
+              RELEASE_CHECK_COMPLETED="false"
+              cat > tag_report.md <<EOF
+          ## Version Tag Check ❌
+
+          Release availability could not be determined for ${RELEASE_TAG}.
+          EOF
+            fi
+          fi
+
+          cat tag_report.md >> "${GITHUB_STEP_SUMMARY}"
+
+          {
+            echo "summary<<EOF"
+            cat tag_report.md
+            echo "EOF"
+            echo "release_check_completed=${RELEASE_CHECK_COMPLETED}"
+            echo "version_source_validation_failed=${VERSION_SOURCE_VALIDATION_FAILED}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Publish version tag check
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+        uses: actions/github-script@v9
+        continue-on-error: true
+        env:
+          SUMMARY: ${{ steps.tag-report.outputs.summary }}
+          IMAGE_EXISTS: ${{ steps.image.outputs.exists }}
+          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
+          TAG_EXISTS: ${{ steps.tag.outputs.exists }}
+          RELEASE_CHECK_COMPLETED: ${{ steps.tag-report.outputs.release_check_completed }}
+          VERSION_SOURCE_VALIDATION_FAILED: ${{ steps.tag-report.outputs.version_source_validation_failed }}
+        with:
+          script: |
+            const imageExists = process.env.IMAGE_EXISTS === "true";
+            const releaseExists = process.env.RELEASE_EXISTS === "true";
+            const tagExists = process.env.TAG_EXISTS === "true";
+            const releaseCheckCompleted =
+              process.env.RELEASE_CHECK_COMPLETED === "true";
+            const versionSourceValidationFailed =
+              process.env.VERSION_SOURCE_VALIDATION_FAILED === "true";
+
+            let checkConclusion = "failure";
+            let checkTitle = "Version tag is available";
+            if (versionSourceValidationFailed) {
+              checkTitle = "Version source validation failed";
+            } else if (
+              releaseCheckCompleted &&
+              !tagExists &&
+              !releaseExists &&
+              !imageExists
+            ) {
+              checkConclusion = "success";
+            } else if (!releaseCheckCompleted) {
+              checkTitle = "Release availability check could not complete";
+            } else if (tagExists) {
+              checkTitle = "Version tag already exists";
+            } else if (releaseExists) {
+              checkTitle = "GitHub Release already exists";
+            } else if (imageExists) {
+              checkTitle = "Docker image tag already exists";
+            }
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: "Version Tag Check",
+              head_sha: context.payload.pull_request.head.sha,
+              status: "completed",
+              conclusion: checkConclusion,
+              output: {
+                title: checkTitle,
+                summary: process.env.SUMMARY,
+              },
+            });
+
+      - name: Enforce release availability
+        if: always() && (steps.tag.outputs.exists != 'false' || steps.release.outputs.exists != 'false' || steps.image.outputs.exists != 'false')
+        run: exit 1
