@@ -10,6 +10,9 @@ permissions:
   contents: read
   checks: write
 
+env:
+  IMAGE_REPOSITORY: mizucopo/rtsp2storage
+
 jobs:
   check-tag-conflict:
     runs-on: ubuntu-latest
@@ -19,37 +22,45 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read version
+      - name: Resolve release version
         id: version
         continue-on-error: true
-        run: |
-          VERSION="$(cat version)"
-          if [ -z "$VERSION" ]; then
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        run: scripts/resolve-release-version.sh 2> version_check_error.txt
 
       - name: Check if tag exists
         id: tag
         if: steps.version.outcome == 'success'
         continue-on-error: true
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
         run: |
-          git fetch --tags
-          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          git fetch --force --tags
+          if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}" >/dev/null; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Build version tag check summary
         id: tag-report
         if: always()
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          TAG_EXISTS: ${{ steps.tag.outputs.exists }}
+          TAG_OUTCOME: ${{ steps.tag.outcome }}
+          VERSION_OUTCOME: ${{ steps.version.outcome }}
         run: |
+          set -euo pipefail
+
           TAG_CHECK_COMPLETED="false"
           VERSION_SOURCE_VALIDATION_FAILED="false"
-          if [ "${{ steps.version.outcome }}" != "success" ]; then
+
+          if [ "${VERSION_OUTCOME}" != "success" ]; then
+            VERSION_SOURCE_VALIDATION_FAILED="true"
             VERSION_ERROR="The version could not be read, so tag availability was not checked."
-            if [ -f version_check_error.txt ]; then
+            if [ -s version_check_error.txt ]; then
               VERSION_ERROR="$(< version_check_error.txt)"
             fi
             cat > tag_report.md <<EOF
@@ -57,47 +68,47 @@ jobs:
 
           ${VERSION_ERROR}
           EOF
-          elif [ "${{ steps.tag.outcome }}" != "success" ]; then
-            cat > tag_report.md <<'EOF'
+          elif [ "${TAG_OUTCOME}" != "success" ]; then
+            cat > tag_report.md <<EOF
           ## Version Tag Check ❌
 
-          The version `${{ steps.version.outputs.version }}` could not be checked against git tags.
+          The version ${RELEASE_TAG} could not be checked against git tags.
           EOF
-          elif [ "${{ steps.tag.outputs.exists }}" = "true" ]; then
+          elif [ "${TAG_EXISTS}" = "true" ]; then
             TAG_CHECK_COMPLETED="true"
-            cat > tag_report.md <<'EOF'
+            cat > tag_report.md <<EOF
           ## Version Tag Check ❌
 
-          The version `${{ steps.version.outputs.version }}` already exists as a git tag.
+          The version ${RELEASE_TAG} already exists as a git tag.
 
           Please update the version with a new version number before merging.
           EOF
-          elif [ "${{ steps.tag.outputs.exists }}" = "false" ]; then
+          elif [ "${TAG_EXISTS}" = "false" ]; then
             TAG_CHECK_COMPLETED="true"
-            cat > tag_report.md <<'EOF'
+            cat > tag_report.md <<EOF
           ## Version Tag Check ✅
 
-          The version `${{ steps.version.outputs.version }}` does not exist as a git tag.
+          The version ${RELEASE_TAG} does not exist as a git tag.
 
           This version is available for use.
           EOF
           else
-            cat > tag_report.md <<'EOF'
+            cat > tag_report.md <<EOF
           ## Version Tag Check ❌
 
-          The version `${{ steps.version.outputs.version }}` could not be checked against git tags.
+          The version ${RELEASE_TAG} could not be checked against git tags.
           EOF
           fi
 
-          cat tag_report.md >> "$GITHUB_STEP_SUMMARY"
+          cat tag_report.md >> "${GITHUB_STEP_SUMMARY}"
 
           {
             echo "summary<<EOF"
             cat tag_report.md
             echo "EOF"
-            echo "tag_check_completed=$TAG_CHECK_COMPLETED"
-            echo "version_source_validation_failed=$VERSION_SOURCE_VALIDATION_FAILED"
-          } >> "$GITHUB_OUTPUT"
+            echo "tag_check_completed=${TAG_CHECK_COMPLETED}"
+            echo "version_source_validation_failed=${VERSION_SOURCE_VALIDATION_FAILED}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Publish version tag check
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
@@ -118,7 +129,7 @@ jobs:
             let checkConclusion = "failure";
             let checkTitle = "Version tag is available";
             if (versionSourceValidationFailed) {
-              checkTitle = "Chrome extension version source validation failed";
+              checkTitle = "Version source validation failed";
             } else if (tagCheckCompleted && !tagExists) {
               checkConclusion = "success";
             } else if (!tagCheckCompleted) {
