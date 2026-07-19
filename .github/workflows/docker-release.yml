@@ -40,18 +40,9 @@ jobs:
         id: version
         run: scripts/resolve-release-version.sh
 
-      - name: Configure Git
+      - name: Inspect existing git tag
+        id: tag
         env:
-          GIT_USER_NAME: "mizu"
-          GIT_USER_EMAIL: "mizu.copo@gmail.com"
-        run: |
-          git config user.name "${GIT_USER_NAME}"
-          git config user.email "${GIT_USER_EMAIL}"
-
-      - name: Inspect existing git tag and release
-        id: existing
-        env:
-          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
         run: |
           set -euo pipefail
@@ -59,7 +50,6 @@ jobs:
           git fetch --force --tags
 
           tag_exists=false
-          release_exists=false
 
           if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}" >/dev/null; then
             tag_exists=true
@@ -71,104 +61,75 @@ jobs:
             fi
           fi
 
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            release_exists=true
-          fi
+          echo "exists=${tag_exists}" >> "${GITHUB_OUTPUT}"
 
-          if [ "${release_exists}" = "true" ] && [ "${tag_exists}" != "true" ]; then
-            echo "Release ${RELEASE_TAG} exists, but the matching git tag was not found." >&2
-            exit 1
-          fi
+      - name: Check GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+        run: scripts/check-github-release.sh
 
-          {
-            echo "tag_exists=${tag_exists}"
-            echo "release_exists=${release_exists}"
-          } >> "${GITHUB_OUTPUT}"
+      - name: Check Docker Hub tag
+        id: image
+        if: steps.release.outputs.exists != 'true'
+        env:
+          IMAGE: ${{ steps.version.outputs.image }}
+        run: |
+          set -euo pipefail
+
+          repository_path="${IMAGE%:*}"
+          namespace="${repository_path%%/*}"
+          repository="${repository_path#*/}"
+          tag="${IMAGE##*:}"
+          tag_url="https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags/${tag}"
+          http_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "${tag_url}")"
+
+          case "${http_status}" in
+            200)
+              echo "exists=true" >> "${GITHUB_OUTPUT}"
+              ;;
+            404)
+              echo "exists=false" >> "${GITHUB_OUTPUT}"
+              ;;
+            *)
+              echo "Could not inspect Docker Hub tag: ${IMAGE} (HTTP ${http_status})" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Resolve release state
+        id: state
+        env:
+          IMAGE_EXISTS: ${{ steps.image.outputs.exists }}
+          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
+          TAG_EXISTS: ${{ steps.tag.outputs.exists }}
+        run: scripts/resolve-docker-release-state.sh
 
       - name: Stop if release already exists
-        if: steps.existing.outputs.tag_exists == 'true' && steps.existing.outputs.release_exists == 'true'
+        if: steps.state.outputs.release_complete == 'true'
         env:
           RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
         run: echo "Release ${RELEASE_TAG} already exists for this commit."
 
       - name: Login to Docker Hub
-        if: steps.existing.outputs.tag_exists != 'true' || steps.existing.outputs.release_exists != 'true'
+        if: steps.state.outputs.publish_image == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Create missing release for existing tag
-        if: steps.existing.outputs.tag_exists == 'true' && steps.existing.outputs.release_exists != 'true'
+      - name: Configure Git
+        if: steps.state.outputs.create_tag == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE: ${{ steps.version.outputs.image }}
-          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          GIT_USER_NAME: "mizu"
+          GIT_USER_EMAIL: mizu.copo@gmail.com
         run: |
-          set -euo pipefail
-
-          docker manifest inspect "${IMAGE}" >/dev/null
-
-          {
-            echo "## Docker Image"
-            echo
-            echo "Pull the Docker image:"
-            echo
-            echo "    docker pull ${IMAGE}"
-            echo
-            echo "Or use the latest tag:"
-            echo
-            echo "    docker pull ${IMAGE_REPOSITORY}:latest"
-            echo
-            echo "## Links"
-            echo
-            echo "- [Docker Hub](${DOCKERHUB_URL})"
-            echo "- [Source Code](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${RELEASE_TAG})"
-          } > release-notes.md
-
-          gh release create "${RELEASE_TAG}" \
-            --title "Release ${RELEASE_TAG}" \
-            --notes-file release-notes.md
-
-      - name: Check Docker Hub tag
-        if: steps.existing.outputs.tag_exists != 'true'
-        env:
-          IMAGE: ${{ steps.version.outputs.image }}
-        run: |
-          set -euo pipefail
-
-          inspect_output="$(docker manifest inspect "${IMAGE}" 2>&1)" && inspect_status=0 || inspect_status=$?
-
-          if [ "${inspect_status}" -eq 0 ]; then
-            echo "Docker image tag already exists: ${IMAGE}" >&2
-            exit 1
-          fi
-
-          if printf '%s' "${inspect_output}" | grep -Eq 'no such manifest|manifest unknown'; then
-            echo "Docker image tag is available: ${IMAGE}"
-            exit 0
-          fi
-
-          echo "Could not inspect Docker Hub tag: ${IMAGE}" >&2
-          printf '%s\n' "${inspect_output}" >&2
-          exit "${inspect_status}"
-
-      - name: Set up Docker Buildx
-        if: steps.existing.outputs.tag_exists != 'true'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push
-        if: steps.existing.outputs.tag_exists != 'true'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.IMAGE_REPOSITORY }}:latest
-            ${{ steps.version.outputs.image }}
+          git config user.name "${GIT_USER_NAME}"
+          git config user.email "${GIT_USER_EMAIL}"
 
       - name: Create and push git tag
-        if: steps.existing.outputs.tag_exists != 'true'
+        if: steps.state.outputs.create_tag == 'true'
         env:
           RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
         run: |
@@ -177,8 +138,22 @@ jobs:
           git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}" "${GITHUB_SHA}"
           git push origin "refs/tags/${RELEASE_TAG}"
 
+      - name: Set up Docker Buildx
+        if: steps.state.outputs.publish_image == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        if: steps.state.outputs.publish_image == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPOSITORY }}:latest
+            ${{ steps.version.outputs.image }}
+
       - name: Create GitHub Release
-        if: steps.existing.outputs.tag_exists != 'true'
+        if: steps.state.outputs.create_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGE: ${{ steps.version.outputs.image }}
