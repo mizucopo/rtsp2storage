@@ -30,16 +30,31 @@ jobs:
           set -euo pipefail
 
           while :; do
-            active_earlier_runs="$(
+            active_runs_json="$(
               gh api --paginate \
                 --header "Accept: application/vnd.github+json" \
                 --header "X-GitHub-Api-Version: 2022-11-28" \
                 "/repos/$GITHUB_REPOSITORY/actions/workflows/docker-release.yml/runs?branch=main&per_page=100" \
-                | jq -s --argjson current "$GITHUB_RUN_NUMBER" \
+                | jq -s \
                   '[.[].workflow_runs[]
-                    | select(.run_number < $current and .status != "completed")]
-                   | length'
+                    | select(.status != "completed")]'
             )"
+            active_earlier_runs="$(
+              jq --argjson current "$GITHUB_RUN_NUMBER" \
+                '[.[] | select(.run_number < $current)] | length' \
+                <<< "$active_runs_json"
+            )"
+            active_newer_runs="$(
+              jq --argjson current "$GITHUB_RUN_NUMBER" \
+                '[.[] | select(.run_number > $current)] | length' \
+                <<< "$active_runs_json"
+            )"
+
+            if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ] \
+              && [ "$active_newer_runs" -gt 0 ]; then
+              echo "A newer release run is active; refusing this historical rerun." >&2
+              exit 1
+            fi
 
             if [ "$active_earlier_runs" -eq 0 ]; then
               break
@@ -99,6 +114,10 @@ jobs:
 
           if [[ ! "$VERSION" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
             fail_version "version is not a valid Docker release tag."
+          fi
+
+          if [ "$VERSION" = "latest" ]; then
+            fail_version "version must not use the reserved Docker tag latest."
           fi
 
 

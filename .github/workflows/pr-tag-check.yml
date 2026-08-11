@@ -56,6 +56,10 @@ jobs:
             fail_version "version is not a valid Docker release tag."
           fi
 
+          if [ "$VERSION" = "latest" ]; then
+            fail_version "version must not use the reserved Docker tag latest."
+          fi
+
 
           if ! git check-ref-format "refs/tags/$VERSION"; then
             fail_version "version is not a valid git tag."
