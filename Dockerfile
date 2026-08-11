@@ -17,10 +17,11 @@ WORKDIR /tmp/ffmpeg-build
 # 依存パッケージのインストール
 RUN apk add --no-cache \
     build-base \
+    ca-certificates \
     cmake \
+    curl \
     git \
     pkgconfig \
-    wget \
     tar \
     yasm \
     nasm \
@@ -58,7 +59,9 @@ RUN apk add --no-cache \
     libass
 
 # FFmpeg公式ソースのダウンロードと展開
-RUN wget https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz \
+RUN curl --fail --location --retry 5 --retry-all-errors --connect-timeout 20 \
+        --output ffmpeg-${FFMPEG_VERSION}.tar.xz \
+        https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz \
     && tar -xf ffmpeg-${FFMPEG_VERSION}.tar.xz \
     && cd ffmpeg-${FFMPEG_VERSION}
 
