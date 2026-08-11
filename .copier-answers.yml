@@ -1,10 +1,13 @@
-_commit: ff0efb1
+_commit: b89394b
 _src_path: git@github.com:mizucopo/repo-template.git
 author_email: mizu.copo@gmail.com
 author_name: みず
+docker_build_context: .
 docker_image_name: rtsp2storage
 docker_login_username: mizucopo
 docker_registry: mizucopo
+docker_smoke_command: ffmpeg -version
+dockerfile_path: Dockerfile
 project_description: RTSPストリームをMP4ファイルとして保存するDockerイメージ
 project_name: rtsp2storage
 project_version: 1.2.5
@@ -14,9 +17,6 @@ use_dependabot_docker: true
 use_dependabot_github_actions: true
 use_docker: true
 use_gh_actions_docker_quality: true
-dockerfile_path: Dockerfile
-docker_build_context: .
-docker_smoke_command: ffmpeg -version
 use_gh_actions_docker_release: true
 use_gh_actions_pr_tag_check: true
 use_mit_license: true
