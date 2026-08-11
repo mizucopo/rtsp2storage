@@ -10,13 +10,22 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
   docker-release:
     runs-on: ubuntu-latest
     steps:
+      - name: Require main
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "This workflow can only release from main." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -157,7 +166,7 @@ jobs:
       - name: Inspect Docker image state
         id: image-state
         env:
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_TOKEN }}
           DOCKERHUB_USERNAME: "mizucopo"
           DOCKERHUB_NAMESPACE: "mizucopo"
           DOCKERHUB_REPOSITORY: "rtsp2storage"
@@ -325,7 +334,7 @@ jobs:
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: "mizucopo"
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_TOKEN }}
 
       - name: Build and push
         if: steps.image-state.outputs.version_exists != 'true'
