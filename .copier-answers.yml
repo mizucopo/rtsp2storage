@@ -7,7 +7,7 @@ docker_login_username: mizucopo
 docker_registry: mizucopo
 project_description: RTSPストリームをMP4ファイルとして保存するDockerイメージ
 project_name: rtsp2storage
-project_version: 1.2.4
+project_version: 1.2.5
 use_aws_ecr: false
 use_chrome_extension: false
 use_dependabot_docker: true
