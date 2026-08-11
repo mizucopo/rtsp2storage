@@ -45,8 +45,7 @@ echo "Directory creation completed."
 
 # ネットワーク接続確認
 echo "Testing RTSP connection..."
-timeout 30 ffprobe -v error -timeout 5000000 -rtsp_transport tcp -show_entries format=duration "${RTSP_URL}" > /dev/null 2>&1
-if [ $? -eq 0 ]; then
+if timeout 30 ffprobe -v error -timeout 5000000 -rtsp_transport tcp -show_entries format=duration "${RTSP_URL}" > /dev/null 2>&1; then
     echo "✅ RTSP connection successful"
 else
     echo "❌ RTSP connection failed. Continuing anyway..."
