@@ -1,4 +1,8 @@
+# Exclude every build input unless the project explicitly allows it.
 **
 !Dockerfile
+
+# Recording entrypoint required by Dockerfile.
 !docker/
+docker/**
 !docker/ffmpeg.sh
