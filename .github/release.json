@@ -1,0 +1,29 @@
+{
+  "version": {
+    "scheme": "semver",
+    "sources": [
+      {
+        "path": "version",
+        "format": "text"
+      }
+    ],
+    "locks": [
+    ]
+  },
+  "publication": {
+    "release_tag": "{version}",
+    "github_release": true,
+
+    "release_paths": ["version", "Dockerfile"],
+    "latest_image": "extended",
+    "images": [
+      {
+        "name": "extended",
+        "repository": "mizucopo/rtsp2storage",
+        "tag": "{version}",
+        "aliases": ["latest"],
+        "registry": "dockerhub"
+      }
+    ]
+  }
+}
