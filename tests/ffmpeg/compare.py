@@ -117,6 +117,9 @@ def run_case(args, root, network, server, codec, termination, containers):
     for name in names.values():
         wait_for(name, "Starting FFmpeg recording...")
     time.sleep(13)
+    running_before_stop = {variant: inspect(name)["State"]["Running"]
+                           for variant, name in names.items()}
+    publisher_running = inspect(publisher)["State"]["Running"]
     if termination == "input-ended":
         docker("stop", "--time", "10", publisher)
         for name in names.values():
@@ -129,14 +132,18 @@ def run_case(args, root, network, server, codec, termination, containers):
         # This is the documented operator action, including its default grace period.
         docker("stop", "--time", "10", *names.values())
         docker("stop", "--time", "10", publisher)
-    case = {"codec": codec, "termination": termination, "variants": {}}
+    case = {"codec": codec, "termination": termination,
+            "publisher_running_before_stop": publisher_running, "variants": {}}
     for variant, name in names.items():
         logs = docker("logs", name)
         (root / label / f"{variant}.log").write_text(logs.stdout + logs.stderr)
         files = probe_outputs(args, root / label / variant, codec)
+        exit_code = inspect(name)["State"]["ExitCode"]
         case["variants"][variant] = {
-            "exit_code": inspect(name)["State"]["ExitCode"], "files": files,
-            "valid": len(files) >= 3 and all(f["valid"] for f in files),
+            "exit_code": exit_code, "files": files,
+            "running_before_stop": running_before_stop[variant],
+            "valid": publisher_running and running_before_stop[variant]
+            and exit_code == 0 and len(files) >= 3 and all(f["valid"] for f in files),
         }
     print(json.dumps({"case": label, "valid": {
         k: v["valid"] for k, v in case["variants"].items()}}), flush=True)

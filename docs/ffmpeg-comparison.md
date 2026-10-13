@@ -44,15 +44,17 @@ Docker の内部 network のみ使用し、ホストへポートを公開して�
 | 入力 / 終了方法 | 現行 7.1.1 | 候補 8.1.2 |
 | --- | --- | --- |
 | H.264 + AAC / 入力終了 | MP4 2 個、映像のみ。exit 0 | MP4 4 個、全て映像・音声 decode 成功。exit 0 |
-| H.265 + AAC / 入力終了 | MP4 2 個、映像のみ。exit 0 | MP4 4 個、全て映像・音声 decode 成功。exit 0 |
+| H.265 + AAC / 入力終了 | MP4 2 個、映像のみ。exit 0 | MP4 3 個、全て映像・音声 decode 成功。exit 0 |
 | H.264 + AAC / docker stop | MP4 3 個、最後は `moov atom not found`。exit 137 | MP4 6 個、最後は同エラー。exit 137 |
-| H.265 + AAC / docker stop | MP4 4 個、最後は `moov atom not found`。exit 137 | MP4 6 個、最後は同エラー。exit 137 |
+| H.265 + AAC / docker stop | MP4 3 個、最後は `moov atom not found`。exit 137 | MP4 6 個、最後は同エラー。exit 137 |
 
 確定済み MP4 の映像は全て decode 成功し、各 stream 内の DTS は単調だった。
-候補の通常録画では最初の分割が約 6.6 / 6.8 秒、中間が約 2 / 4 秒、最後が約 0.8 秒だった。
+最終再実行の候補の通常録画では最初の分割が約 7.7 / 5.7 秒、中間が約 2 / 4 秒、最後が約 0.3 / 3.9 秒だった。
 GOP・開始位置・既存 timestamp 処理により、4 秒指定でも各 MP4 の長さは一律 4 秒にはならない。
 候補の後続ファイルには映像 DTS 約 -0.08 / -0.12 秒、AAC PTS 約 -0.06〜-0.12 秒もある。
 負値の有無だけで正常とは判定せず、packet 順序と decode を確認した。
+全 4 ケースを再実行しても AAC・停止時 MP4 の結論は同じだったが、開始位置により分割数・長さは変わった。
+JSON と表は、終了前の稼働状態と終了コードも合否に含めた最終再実行の 29 ファイルを示す。
 
 現行の RTSP 入力ログには AAC stream と copy mapping があるが、出力ログは `audio:0KiB` で、
 MP4 に音声 stream がない。同じ秒の出力名を繰り返し開くログもあり、分割数が候補と異なる。
@@ -87,10 +89,12 @@ CI の予測値や統計的な benchmark ではない。サイズは smoke 実�
 Python 3 と Docker / Buildx が必要。既存イメージを上書きしないテスト用 tag を使う。
 出力先は未作成の directory を指定する。fixture、MP4、ログ、packet の要約を含む
 `report.json` を残し、テスト用コンテナと network は終了時に削除する。
-全ケースの両版で、3 個以上の MP4 に必要な映像・音声があり、先頭 keyframe・DTS 順序・decode が
-成功した場合のみ exit 0。今回の結果では exit 1 が正しい。
+全ケースで終了要求前に配信と両録画コンテナが稼働し、両版が exit 0 で終了し、
+3 個以上の MP4 に必要な映像・音声があり、先頭 keyframe・DTS 順序・decode が
+成功した場合のみテストは exit 0。今回の結果では exit 1 が正しい。
 
 ```sh
+python3 -m unittest discover -s tests/ffmpeg -v
 mkdir -p ../ffmpeg-comparison
 git show 76ce7b1c3ecc1d41be579c923001cc29028855b4:Dockerfile > ../ffmpeg-comparison/baseline.Dockerfile
 docker buildx build --platform linux/amd64 --no-cache --load \
