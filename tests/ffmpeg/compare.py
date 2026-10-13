@@ -19,6 +19,17 @@ def inspect(name):
     return json.loads(docker("inspect", name).stdout)[0]
 
 
+def image_metadata(args):
+    docker("pull", args.server_image)
+    images = {}
+    for label, image in {"baseline": args.baseline, "alpine": args.candidate,
+                         "server": args.server_image}.items():
+        info = inspect(image)
+        images[label] = {"reference": image, "id": info["Id"],
+                         "architecture": info["Architecture"]}
+    return images
+
+
 def wait_for(name, marker, seconds=50):
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
@@ -160,17 +171,15 @@ def main():
                         help="New artifact directory outside the build context")
     args = parser.parse_args()
     root = args.output.resolve()
+    if root.exists():
+        parser.error("--output must name a new directory")
+    images = image_metadata(args)
     root.mkdir(parents=True, exist_ok=False)
     network = "rtsp2storage-compare-" + uuid.uuid4().hex[:10]
     server = network + "-server"
     containers = [server]
     report = {"segment_time": 4, "platform": "linux/amd64", "cases": [],
-              "images": {}}
-    for label, image in {"baseline": args.baseline, "alpine": args.candidate,
-                         "server": args.server_image}.items():
-        info = inspect(image)
-        report["images"][label] = {"reference": image, "id": info["Id"],
-                                   "architecture": info["Architecture"]}
+              "images": images}
     try:
         for codec in ("h264", "hevc"):
             encoder = "libx264" if codec == "h264" else "libx265"

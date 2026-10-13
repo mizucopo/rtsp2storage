@@ -2,6 +2,10 @@
 
 import contextlib
 import io
+import json
+from pathlib import Path
+import subprocess
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
@@ -42,6 +46,37 @@ class TerminationTest(unittest.TestCase):
     def test_running_recorder_then_clean_exit_passes(self):
         case = self.run_case(True, 0)
         self.assertTrue(all(v["valid"] for v in case["variants"].values()))
+
+
+class ImageSetupTest(unittest.TestCase):
+    def test_uncached_server_is_pulled_before_inspection(self):
+        pulled = False
+
+        def docker(*args, **kwargs):
+            nonlocal pulled
+            if args == ("pull", "server"):
+                pulled = True
+            elif args == ("inspect", "server") and not pulled:
+                raise subprocess.CalledProcessError(1, args)
+            return SimpleNamespace(stdout=json.dumps([{"Id": "id", "Architecture": "amd64"}]))
+
+        with patch.object(compare, "docker", side_effect=docker):
+            images = compare.image_metadata(SimpleNamespace(
+                baseline="baseline", candidate="alpine", server_image="server"
+            ))
+        self.assertTrue(pulled)
+        self.assertEqual(images["server"]["architecture"], "amd64")
+
+    def test_failed_image_setup_does_not_create_output_directory(self):
+        with TemporaryDirectory() as temporary:
+            output = Path(temporary) / "recordings"
+            args = SimpleNamespace(output=output, baseline="baseline",
+                                   candidate="alpine", server_image="server")
+            with patch.object(compare.argparse.ArgumentParser, "parse_args", return_value=args), \
+                    patch.object(compare, "docker", side_effect=subprocess.CalledProcessError(1, "docker")):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    compare.main()
+            self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":

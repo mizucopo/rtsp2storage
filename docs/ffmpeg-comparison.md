@@ -27,6 +27,9 @@ Docker Desktop 29.8.2 / BuildKit 0.33.1、Apple arm64 ホスト、Docker VM 12 C
 両録画イメージを同じ `linux/amd64` 条件で実行した。RTSP サーバーは
 [MediaMTX](https://mediamtx.org/docs/references/configuration-file) v1.21.2（arm64）、
 digest `sha256:c7540465f868a02652118bea5a0daab12a29ac0f6cb8485abd535939ecddf886`。
+この digest は OCI image index で、linux/amd64 と linux/arm64 の manifest を含む。
+JSON の server `arm64` は測定ホストで選択された実体を表す。再実行時のサーバーはホストの native platform を使い、
+amd64 ホストでは index 内の amd64 image を利用できる（amd64 での起動も別途確認済み）。
 Docker の内部 network のみ使用し、ホストへポートを公開していない。
 
 候補 FFmpeg で 320×180 / 25 fps / GOP 50 の H.264、H.265 と 48 kHz stereo AAC の
@@ -87,6 +90,8 @@ CI の予測値や統計的な benchmark ではない。サイズは smoke 実�
 ## 再実行
 
 Python 3 と Docker / Buildx が必要。既存イメージを上書きしないテスト用 tag を使う。
+比較開始時にサーバーイメージを pull し、3 イメージの確認が成功してから出力 directory を作成する。
+この準備段階が失敗しても出力先を作らないため、同じコマンドで再試行できる。
 出力先は未作成の directory を指定する。fixture、MP4、ログ、packet の要約を含む
 `report.json` を残し、テスト用コンテナと network は終了時に削除する。
 全ケースで終了要求前に配信と両録画コンテナが稼働し、両版が exit 0 で終了し、
