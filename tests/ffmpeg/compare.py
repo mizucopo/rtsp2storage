@@ -73,8 +73,19 @@ def numeric_timestamps(packets, key):
 
 
 def duplicate_output_paths(logs):
-    paths = re.findall(r"Opening '(/videos/[^'\n]+\.mp4)' for writing", logs)
-    return sorted(path for path, count in Counter(paths).items() if count > 1)
+    paths = Counter()
+    previous_path = None
+    for line in logs.splitlines():
+        opening = re.search(r"Opening '(/videos/[^'\n]+\.mp4)' for writing", line)
+        repeated = re.fullmatch(r"\s*Last message repeated (\d+) times?", line)
+        if opening:
+            previous_path = opening.group(1)
+            paths[previous_path] += 1
+        elif previous_path and repeated:
+            paths[previous_path] += int(repeated.group(1))
+        else:
+            previous_path = None
+    return sorted(path for path, count in paths.items() if count > 1)
 
 
 def probe_outputs(args, directory, codec):

@@ -48,9 +48,16 @@ class TerminationTest(unittest.TestCase):
         self.assertTrue(all(v["valid"] for v in case["variants"].values()))
 
     def test_overwritten_segments_cannot_pass_with_valid_remaining_files(self):
-        logs = "[segment] Opening '/videos/2026/10/13/120000.mp4' for writing\n" * 2
-        case = self.run_case(True, 0, logs)
-        self.assertTrue(all(not v["valid"] for v in case["variants"].values()))
+        opening = "[segment] Opening '/videos/2026/10/13/120000.mp4' for writing\n"
+        for logs in (opening * 2, opening + "    Last message repeated 2 times\n"):
+            with self.subTest(logs=logs):
+                case = self.run_case(True, 0, logs)
+                self.assertTrue(all(not v["valid"] for v in case["variants"].values()))
+
+    def test_repeated_other_messages_do_not_mark_segment_as_overwritten(self):
+        logs = ("[segment] Opening '/videos/2026/10/13/120000.mp4' for writing\n"
+                "[rtsp] Non-monotonic DTS\n    Last message repeated 2 times\n")
+        self.assertEqual(compare.duplicate_output_paths(logs), [])
 
 
 class ImageSetupTest(unittest.TestCase):

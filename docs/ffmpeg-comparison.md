@@ -37,7 +37,7 @@ native build で multiarch 指定なし。今回も録画は linux/amd64 に限�
 - AAC 欠落で interleave が待ち、終了時に分割がまとめて作られる。strftime は作成時刻なので同じ秒の
   パスを繰り返し開いていた。HEVC 切り分けでは未修正が AAC 819 入力→0 保存、映像 417 mux→217 現存、
   修正後は AAC 816→816、映像 417→417、全 5 MP4 の全 stream decode 成功だった。
-  比較テストは同じ出力パスの再オープンも失敗として扱う。
+  比較テストは同じ出力パスの再オープンも失敗として扱い、Last message repeated に圧縮された重複も検出する。
 
 timeout 60 秒、fflags の入力側への移動、interleave 上限 1 秒を個別に試しても AAC 欠落は直らなかった。
 今回は既存 timeout・timestamp flags を維持する。`-timeout 60` は microseconds で、60 秒ではない。
