@@ -1,0 +1,359 @@
+{
+  "delayed": {
+    "ready": true,
+    "elapsed": 4.398334125,
+    "cleanup": true
+  },
+  "early-exit": {
+    "rejected": true,
+    "error": "rtsp2storage-regression-6d691c1096-publisher exited before RTSP readiness: intentional-publisher-failure\n",
+    "elapsed": 0.06714512500000058,
+    "cleanup": true
+  },
+  "unavailable": {
+    "rejected": true,
+    "error": "rtsp2storage-regression-75bf799c3e-publisher: timed out waiting for RTSP packets at rtsp://rtsp2storage-regression-75bf799c3e-server:8554/live",
+    "elapsed": 3.000951959000001,
+    "cleanup": true
+  },
+  "three-short-valid-mp4": {
+    "files": [
+      {
+        "path": "0.mp4",
+        "bytes": 43403,
+        "probe_exit": 0,
+        "errors": "",
+        "duration": 0.48,
+        "streams": [
+          {
+            "type": "video",
+            "codec": "h264",
+            "packets": 12,
+            "first_dts": -0.08,
+            "last_dts": 0.36,
+            "min_pts": 0.0,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.040000000000000036,
+            "first_keyframe": true
+          },
+          {
+            "type": "audio",
+            "codec": "aac",
+            "packets": 20,
+            "first_dts": -0.021333,
+            "last_dts": 0.384,
+            "min_pts": -0.021333,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.02133400000000002,
+            "first_keyframe": true
+          }
+        ],
+        "decode_exit": 0,
+        "valid": true
+      },
+      {
+        "path": "1.mp4",
+        "bytes": 43403,
+        "probe_exit": 0,
+        "errors": "",
+        "duration": 0.48,
+        "streams": [
+          {
+            "type": "video",
+            "codec": "h264",
+            "packets": 12,
+            "first_dts": -0.08,
+            "last_dts": 0.36,
+            "min_pts": 0.0,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.040000000000000036,
+            "first_keyframe": true
+          },
+          {
+            "type": "audio",
+            "codec": "aac",
+            "packets": 20,
+            "first_dts": -0.021333,
+            "last_dts": 0.384,
+            "min_pts": -0.021333,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.02133400000000002,
+            "first_keyframe": true
+          }
+        ],
+        "decode_exit": 0,
+        "valid": true
+      },
+      {
+        "path": "2.mp4",
+        "bytes": 43403,
+        "probe_exit": 0,
+        "errors": "",
+        "duration": 0.48,
+        "streams": [
+          {
+            "type": "video",
+            "codec": "h264",
+            "packets": 12,
+            "first_dts": -0.08,
+            "last_dts": 0.36,
+            "min_pts": 0.0,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.040000000000000036,
+            "first_keyframe": true
+          },
+          {
+            "type": "audio",
+            "codec": "aac",
+            "packets": 20,
+            "first_dts": -0.021333,
+            "last_dts": 0.384,
+            "min_pts": -0.021333,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.02133400000000002,
+            "first_keyframe": true
+          }
+        ],
+        "decode_exit": 0,
+        "valid": true
+      }
+    ],
+    "coverage": {
+      "observation_seconds": 13,
+      "streams": {
+        "video": {
+          "packets": 36,
+          "packet_seconds": 1.44,
+          "required_seconds": 10,
+          "max_dts_gap": 0.040000000000000036,
+          "allowed_dts_gap": 0.08,
+          "valid": false
+        },
+        "audio": {
+          "packets": 60,
+          "packet_seconds": 1.28,
+          "required_seconds": 12,
+          "max_dts_gap": 0.02133400000000002,
+          "allowed_dts_gap": 0.05,
+          "valid": false
+        }
+      },
+      "valid": false
+    },
+    "rejected": true
+  },
+  "internal-packet-gap": {
+    "files": [
+      {
+        "path": "gap.mp4",
+        "bytes": 1425547,
+        "probe_exit": 0,
+        "errors": "",
+        "duration": 18.0,
+        "streams": [
+          {
+            "type": "video",
+            "codec": "h264",
+            "packets": 373,
+            "first_dts": 0.0,
+            "last_dts": 17.96,
+            "min_pts": 0.0,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 3.08,
+            "first_keyframe": true
+          },
+          {
+            "type": "audio",
+            "codec": "aac",
+            "packets": 703,
+            "first_dts": -0.021333,
+            "last_dts": 17.984,
+            "min_pts": -0.021333,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 3.029334,
+            "first_keyframe": true
+          }
+        ],
+        "decode_exit": 0,
+        "valid": true
+      }
+    ],
+    "coverage": {
+      "observation_seconds": 13,
+      "streams": {
+        "video": {
+          "packets": 373,
+          "packet_seconds": 14.92,
+          "required_seconds": 10,
+          "max_dts_gap": 3.08,
+          "allowed_dts_gap": 0.08,
+          "valid": false
+        },
+        "audio": {
+          "packets": 703,
+          "packet_seconds": 14.997333333333334,
+          "required_seconds": 12,
+          "max_dts_gap": 3.029334,
+          "allowed_dts_gap": 0.05,
+          "valid": false
+        }
+      },
+      "valid": false
+    },
+    "rejected": true
+  },
+  "missing-interior-segment": {
+    "files": [
+      {
+        "path": "033137.mp4",
+        "bytes": 365973,
+        "probe_exit": 0,
+        "errors": "",
+        "duration": 4.786,
+        "streams": [
+          {
+            "type": "video",
+            "codec": "h264",
+            "packets": 100,
+            "first_dts": 0.684667,
+            "last_dts": 4.666,
+            "min_pts": 0.786,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.06133300000000008,
+            "first_keyframe": true
+          },
+          {
+            "type": "audio",
+            "codec": "aac",
+            "packets": 222,
+            "first_dts": 0.0,
+            "last_dts": 4.704,
+            "min_pts": 0.0,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.021334000000000408,
+            "first_keyframe": true
+          }
+        ],
+        "decode_exit": 0,
+        "valid": true
+      },
+      {
+        "path": "033145.mp4",
+        "bytes": 344645,
+        "probe_exit": 0,
+        "errors": "",
+        "duration": 4.0,
+        "streams": [
+          {
+            "type": "video",
+            "codec": "h264",
+            "packets": 100,
+            "first_dts": -0.08,
+            "last_dts": 3.88,
+            "min_pts": 0.0,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.040000000000000036,
+            "first_keyframe": true
+          },
+          {
+            "type": "audio",
+            "codec": "aac",
+            "packets": 188,
+            "first_dts": -0.071958,
+            "last_dts": 3.917375,
+            "min_pts": -0.071958,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.021334000000000408,
+            "first_keyframe": true
+          }
+        ],
+        "decode_exit": 0,
+        "valid": true
+      },
+      {
+        "path": "033149.mp4",
+        "bytes": 56528,
+        "probe_exit": 0,
+        "errors": "",
+        "duration": 0.675,
+        "streams": [
+          {
+            "type": "video",
+            "codec": "h264",
+            "packets": 15,
+            "first_dts": -0.101322,
+            "last_dts": 0.48,
+            "min_pts": 0.0,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.061322,
+            "first_keyframe": true
+          },
+          {
+            "type": "audio",
+            "codec": "aac",
+            "packets": 36,
+            "first_dts": -0.082625,
+            "last_dts": 0.653375,
+            "min_pts": -0.082625,
+            "dts_complete": true,
+            "pts_complete": true,
+            "monotonic_dts": true,
+            "max_dts_gap": 0.021334000000000075,
+            "first_keyframe": true
+          }
+        ],
+        "decode_exit": 0,
+        "valid": true
+      }
+    ],
+    "coverage": {
+      "observation_seconds": 13.093991792,
+      "streams": {
+        "video": {
+          "packets": 215,
+          "packet_seconds": 8.6,
+          "required_seconds": 10.093991792,
+          "max_dts_gap": 0.06133300000000008,
+          "allowed_dts_gap": 0.08,
+          "valid": false
+        },
+        "audio": {
+          "packets": 446,
+          "packet_seconds": 9.514666666666667,
+          "required_seconds": 12.093991792,
+          "max_dts_gap": 0.021334000000000408,
+          "allowed_dts_gap": 0.05,
+          "valid": false
+        }
+      },
+      "valid": false
+    },
+    "rejected": true
+  }
+}

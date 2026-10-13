@@ -11,11 +11,17 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import compare
+from test_coverage import segment
 
 
 class TerminationTest(unittest.TestCase):
-    def run_case(self, running_before_stop, exit_code, logs=""):
+    def run_case(self, running_before_stop, exit_code, logs="", files=None):
         stopped = False
+        now = 0
+
+        def sleep(seconds):
+            nonlocal now
+            now += seconds
 
         def docker(*args, **kwargs):
             nonlocal stopped
@@ -30,8 +36,11 @@ class TerminationTest(unittest.TestCase):
         with patch.object(compare, "docker", side_effect=docker), \
                 patch.object(compare, "inspect", side_effect=inspect), \
                 patch.object(compare, "wait_for"), \
-                patch.object(compare, "probe_outputs", return_value=[{"valid": True}] * 3), \
-                patch.object(compare.time, "sleep"), contextlib.redirect_stdout(io.StringIO()):
+                patch.object(compare, "wait_for_publisher"), \
+                patch.object(compare, "probe_outputs", return_value=files or [segment(4.5)] * 3), \
+                patch.object(compare.time, "monotonic", side_effect=lambda: now), \
+                patch.object(compare.time, "sleep", side_effect=sleep), \
+                contextlib.redirect_stdout(io.StringIO()):
             return compare.run_case(
                 SimpleNamespace(baseline="baseline", candidate="alpine"),
                 MagicMock(), "network", "server", "h264", "input-ended", [],
@@ -46,6 +55,10 @@ class TerminationTest(unittest.TestCase):
     def test_running_recorder_then_clean_exit_passes(self):
         case = self.run_case(True, 0)
         self.assertTrue(all(v["valid"] for v in case["variants"].values()))
+
+    def test_running_recorder_with_three_short_valid_files_fails(self):
+        case = self.run_case(True, 0, files=[segment(0.4)] * 3)
+        self.assertTrue(all(not v["valid"] for v in case["variants"].values()))
 
     def test_overwritten_segments_cannot_pass_with_valid_remaining_files(self):
         opening = "[segment] Opening '/videos/2026/10/13/120000.mp4' for writing\n"
