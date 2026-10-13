@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import math
 from pathlib import Path
 import subprocess
 import time
@@ -27,6 +28,12 @@ def image_metadata(args):
         info = inspect(image)
         images[label] = {"reference": image, "id": info["Id"],
                          "architecture": info["Architecture"]}
+        if label != "server":
+            run = ["run", "--rm", "--network", "none", "--platform", "linux/amd64", "--entrypoint"]
+            version = docker(*run, "ffmpeg", image, "-version")
+            package = docker(*run, "apk", image, "list", "--installed", "ffmpeg")
+            images[label]["ffmpeg_version"] = (version.stdout + version.stderr).strip()
+            images[label]["ffmpeg_package"] = package.stdout.strip() or None
     return images
 
 
@@ -51,6 +58,18 @@ def media(args, output, program, *command):
     )
 
 
+def numeric_timestamps(packets, key):
+    values = []
+    for packet in packets:
+        try:
+            value = float(packet[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            values.append(value)
+    return values
+
+
 def probe_outputs(args, directory, codec):
     files = []
     for path in sorted(directory.rglob("*.mp4")):
@@ -68,14 +87,17 @@ def probe_outputs(args, directory, codec):
             for stream in data["streams"]:
                 packets = [p for p in data["packets"]
                            if p["stream_index"] == stream["index"]]
-                dts = [float(p["dts_time"]) for p in packets if "dts_time" in p]
-                pts = [float(p["pts_time"]) for p in packets if "pts_time" in p]
+                dts = numeric_timestamps(packets, "dts_time")
+                pts = numeric_timestamps(packets, "pts_time")
+                dts_complete = bool(packets) and len(dts) == len(packets)
+                pts_complete = bool(packets) and len(pts) == len(packets)
                 item["streams"].append({
                     "type": stream["codec_type"], "codec": stream["codec_name"],
                     "packets": len(packets), "first_dts": dts[0] if dts else None,
                     "last_dts": dts[-1] if dts else None,
                     "min_pts": min(pts) if pts else None,
-                    "monotonic_dts": all(a <= b for a, b in zip(dts, dts[1:])),
+                    "dts_complete": dts_complete, "pts_complete": pts_complete,
+                    "monotonic_dts": dts_complete and all(a <= b for a, b in zip(dts, dts[1:])),
                     "first_keyframe": bool(packets and "K" in packets[0]["flags"]),
                 })
             decode = media(
@@ -88,7 +110,7 @@ def probe_outputs(args, directory, codec):
             item["valid"] = (
                 decode.returncode == 0 and not item["errors"]
                 and {s["codec"] for s in item["streams"]} == expected
-                and all(s["packets"] > 0 and s["monotonic_dts"]
+                and all(s["packets"] > 0 and s["monotonic_dts"] and s["pts_complete"]
                         for s in item["streams"])
                 and all(s["first_keyframe"] for s in item["streams"]
                         if s["type"] == "video")

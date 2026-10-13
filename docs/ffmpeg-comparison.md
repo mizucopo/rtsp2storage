@@ -40,6 +40,7 @@ Docker の内部 network のみ使用し、ホストへポートを公開して�
 同じ `docker stop --time 10` で停止した。
 
 全 MP4 を候補の同一 `ffprobe` で調べ、映像・音声 packet、DTS の順序、先頭映像 keyframe を記録し、
+全 packet の DTS/PTS が有限の数値として存在することも合否に含めた。
 `ffmpeg -xerror -map 0 -f null -` で全 stream を decode した。
 この「再生確認」は decode 検証であり、目視・聴取による確認ではない。
 ファイル名は両版とも Asia/Tokyo の日付階層になった。
@@ -75,7 +76,7 @@ CI の予測値や統計的な benchmark ではない。サイズは smoke 実�
 
 | 項目 | 現行 | 配布版候補 |
 | --- | ---: | ---: |
-| FFmpeg | 7.1.1 自前ビルド | 8.1.2（Alpine `ffmpeg`） |
+| FFmpeg | 7.1.1 自前ビルド | 8.1.2（Alpine `ffmpeg-8.1.2-r0`） |
 | build wall time | 252.785 秒 | 6.004 秒 |
 | image Size | 151,811,736 bytes | 208,964,108 bytes |
 | Dockerfile 行数 | 136 | 16（候補のみ。本番変更 0 行） |
@@ -94,8 +95,10 @@ Python 3 と Docker / Buildx が必要。既存イメージを上書きしない
 この準備段階が失敗しても出力先を作らないため、同じコマンドで再試行できる。
 出力先は未作成の directory を指定する。fixture、MP4、ログ、packet の要約を含む
 `report.json` を残し、テスト用コンテナと network は終了時に削除する。
+report の `images` には両録画イメージの `ffmpeg -version` 全出力と `apk list --installed ffmpeg` を保存する。
+自前ビルドの `ffmpeg_package` は null。ローカル image を削除しても FFmpeg version と APK revision を識別できる。
 全ケースで終了要求前に配信と両録画コンテナが稼働し、両版が exit 0 で終了し、
-3 個以上の MP4 に必要な映像・音声があり、先頭 keyframe・DTS 順序・decode が
+3 個以上の MP4 に必要な映像・音声があり、先頭 keyframe・全 packet の数値 DTS/PTS・DTS 順序・decode が
 成功した場合のみテストは exit 0。今回の結果では exit 1 が正しい。
 
 ```sh

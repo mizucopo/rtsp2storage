@@ -49,6 +49,27 @@ class TerminationTest(unittest.TestCase):
 
 
 class ImageSetupTest(unittest.TestCase):
+    def test_records_binary_and_package_versions(self):
+        def docker(*args, **kwargs):
+            if args[0] == "inspect":
+                output = json.dumps([{"Id": "id", "Architecture": "amd64"}])
+            elif "--entrypoint" in args and args[args.index("--entrypoint") + 1] == "ffmpeg":
+                output = "ffmpeg version " + ("7.1.1" if "baseline" in args else "8.1.2")
+            elif "apk" in args:
+                output = "" if "baseline" in args else "ffmpeg-8.1.2-r0 x86_64 [installed]"
+            else:
+                output = ""
+            return SimpleNamespace(stdout=output, stderr="")
+
+        with patch.object(compare, "docker", side_effect=docker):
+            images = compare.image_metadata(SimpleNamespace(
+                baseline="baseline", candidate="alpine", server_image="server"
+            ))
+        self.assertEqual(images["baseline"]["ffmpeg_version"], "ffmpeg version 7.1.1")
+        self.assertIsNone(images["baseline"]["ffmpeg_package"])
+        self.assertEqual(images["alpine"]["ffmpeg_version"], "ffmpeg version 8.1.2")
+        self.assertIn("ffmpeg-8.1.2-r0", images["alpine"]["ffmpeg_package"])
+
     def test_uncached_server_is_pulled_before_inspection(self):
         pulled = False
 
@@ -58,7 +79,7 @@ class ImageSetupTest(unittest.TestCase):
                 pulled = True
             elif args == ("inspect", "server") and not pulled:
                 raise subprocess.CalledProcessError(1, args)
-            return SimpleNamespace(stdout=json.dumps([{"Id": "id", "Architecture": "amd64"}]))
+            return SimpleNamespace(stdout=json.dumps([{"Id": "id", "Architecture": "amd64"}]), stderr="")
 
         with patch.object(compare, "docker", side_effect=docker):
             images = compare.image_metadata(SimpleNamespace(
@@ -77,6 +98,36 @@ class ImageSetupTest(unittest.TestCase):
                 with self.assertRaises(subprocess.CalledProcessError):
                     compare.main()
             self.assertFalse(output.exists())
+
+
+class PacketValidationTest(unittest.TestCase):
+    def probe(self, video_dts):
+        packets = [{"stream_index": 0, "pts_time": "0.0", "flags": "K"},
+                   {"stream_index": 0, "pts_time": "0.04", "flags": "_"},
+                   {"stream_index": 1, "pts_time": "0.0", "dts_time": "0.0", "flags": "K"}]
+        for packet, value in zip(packets, video_dts):
+            if value is not None:
+                packet["dts_time"] = value
+        data = {"format": {"duration": "4.0"}, "streams": [
+            {"index": 0, "codec_type": "video", "codec_name": "h264"},
+            {"index": 1, "codec_type": "audio", "codec_name": "aac"},
+        ], "packets": packets}
+        results = [SimpleNamespace(returncode=0, stdout=json.dumps(data), stderr=""),
+                   SimpleNamespace(returncode=0, stdout="", stderr="")]
+        with TemporaryDirectory() as temporary, patch.object(compare, "media", side_effect=results):
+            directory = Path(temporary)
+            (directory / "test.mp4").write_bytes(b"fixture")
+            return compare.probe_outputs(SimpleNamespace(), directory, "h264")[0]
+
+    def test_missing_or_invalid_dts_cannot_pass_after_successful_decode(self):
+        for dts in ((None, None), ("0.0", None), ("0.0", "N/A"), ("nan", "nan")):
+            with self.subTest(dts=dts):
+                result = self.probe(dts)
+                self.assertFalse(result["valid"])
+                self.assertFalse(result["streams"][0]["monotonic_dts"])
+
+    def test_complete_ordered_dts_passes(self):
+        self.assertTrue(self.probe(("0.0", "0.04"))["valid"])
 
 
 if __name__ == "__main__":
