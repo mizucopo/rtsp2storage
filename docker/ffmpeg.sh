@@ -53,8 +53,13 @@ fi
 
 # 信号ハンドリング
 cleanup() {
+    trap '' TERM INT
     echo "Received signal, gracefully shutting down FFmpeg..."
-    pkill -TERM ffmpeg
+    recording_pid=${ffmpeg_pid:-$!}
+    if [ -n "${recording_pid}" ]; then
+        kill -TERM "${recording_pid}" 2>/dev/null || :
+        wait "${recording_pid}" || :
+    fi
     exit 0
 }
 
@@ -63,7 +68,8 @@ trap cleanup TERM INT
 echo "Starting FFmpeg recording..."
 echo "Command: ffmpeg -timeout 60 -rtsp_transport tcp -i '${RTSP_URL}' ..."
 
-# ffmpegの実行
+# RTSP AAC の key flag がない旧 FFmpeg でも音声を stream copy する。
+# 非同期実行にして親シェルの trap から終了・MP4 確定を待つ。
 ffmpeg \
     -timeout 60 \
     -rtsp_transport tcp \
@@ -71,10 +77,14 @@ ffmpeg \
     -avoid_negative_ts make_zero \
     -fflags +genpts+igndts \
     -c copy \
+    -copyinkf:a \
     -f segment \
     -segment_time "${SEGMENT_TIME}" \
     -segment_format mp4 \
     -reset_timestamps 1 \
     -movflags +faststart \
     -strftime 1 \
-    /videos/%Y/%m/%d/%H%M%S.mp4
+    /videos/%Y/%m/%d/%H%M%S.mp4 &
+
+ffmpeg_pid=$!
+wait "${ffmpeg_pid}"

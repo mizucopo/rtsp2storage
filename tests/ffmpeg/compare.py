@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Compare unchanged recording entrypoints against one isolated RTSP source."""
+"""Compare identical recording entrypoints against one isolated RTSP source."""
 
 import argparse
+from collections import Counter
 import json
 import math
 from pathlib import Path
+import re
 import subprocess
 import time
 import uuid
@@ -68,6 +70,11 @@ def numeric_timestamps(packets, key):
         if math.isfinite(value):
             values.append(value)
     return values
+
+
+def duplicate_output_paths(logs):
+    paths = re.findall(r"Opening '(/videos/[^'\n]+\.mp4)' for writing", logs)
+    return sorted(path for path, count in Counter(paths).items() if count > 1)
 
 
 def probe_outputs(args, directory, codec):
@@ -169,14 +176,18 @@ def run_case(args, root, network, server, codec, termination, containers):
             "publisher_running_before_stop": publisher_running, "variants": {}}
     for variant, name in names.items():
         logs = docker("logs", name)
-        (root / label / f"{variant}.log").write_text(logs.stdout + logs.stderr)
+        log_text = logs.stdout + logs.stderr
+        (root / label / f"{variant}.log").write_text(log_text)
+        duplicates = duplicate_output_paths(log_text)
         files = probe_outputs(args, root / label / variant, codec)
         exit_code = inspect(name)["State"]["ExitCode"]
         case["variants"][variant] = {
             "exit_code": exit_code, "files": files,
             "running_before_stop": running_before_stop[variant],
+            "duplicate_output_paths": duplicates,
             "valid": publisher_running and running_before_stop[variant]
-            and exit_code == 0 and len(files) >= 3 and all(f["valid"] for f in files),
+            and exit_code == 0 and not duplicates
+            and len(files) >= 3 and all(f["valid"] for f in files),
         }
     print(json.dumps({"case": label, "valid": {
         k: v["valid"] for k, v in case["variants"].items()}}), flush=True)

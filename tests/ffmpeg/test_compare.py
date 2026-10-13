@@ -14,14 +14,14 @@ import compare
 
 
 class TerminationTest(unittest.TestCase):
-    def run_case(self, running_before_stop, exit_code):
+    def run_case(self, running_before_stop, exit_code, logs=""):
         stopped = False
 
         def docker(*args, **kwargs):
             nonlocal stopped
             if args[0] == "stop":
                 stopped = True
-            return SimpleNamespace(stdout="", stderr="")
+            return SimpleNamespace(stdout=logs if args[0] == "logs" else "", stderr="")
 
         def inspect(name):
             running = not stopped and (name.endswith("publisher") or running_before_stop)
@@ -46,6 +46,11 @@ class TerminationTest(unittest.TestCase):
     def test_running_recorder_then_clean_exit_passes(self):
         case = self.run_case(True, 0)
         self.assertTrue(all(v["valid"] for v in case["variants"].values()))
+
+    def test_overwritten_segments_cannot_pass_with_valid_remaining_files(self):
+        logs = "[segment] Opening '/videos/2026/10/13/120000.mp4' for writing\n" * 2
+        case = self.run_case(True, 0, logs)
+        self.assertTrue(all(not v["valid"] for v in case["variants"].values()))
 
 
 class ImageSetupTest(unittest.TestCase):
