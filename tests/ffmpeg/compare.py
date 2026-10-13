@@ -3,6 +3,7 @@
 
 import argparse
 from collections import Counter
+from datetime import datetime
 import json
 import math
 from pathlib import Path
@@ -85,6 +86,39 @@ def wait_for_publisher(name, url, seconds=50):
             return
         time.sleep(min(0.5, max(0, deadline - time.monotonic())))
     raise RuntimeError(f"{name}: timed out waiting for RTSP packets at {url}")
+
+
+def wait_for_recorders(names, seconds=50):
+    deadline = time.monotonic() + seconds
+    starts = {}
+    while time.monotonic() < deadline:
+        # Timestamped markers include recording before the first poll, even if
+        # a Docker launch or the other recorder's preparation was slow.
+        for variant, name in names.items():
+            if variant in starts:
+                continue
+            result = docker("logs", "--timestamps", name)
+            logs = result.stdout + result.stderr
+            if not inspect(name)["State"]["Running"]:
+                raise RuntimeError(f"{name} exited before recording readiness: {logs}")
+            for line in logs.splitlines():
+                if "Starting FFmpeg recording..." in line:
+                    starts[variant] = docker_timestamp(line.split()[0])
+                    break
+        if len(starts) == len(names):
+            return starts
+        time.sleep(0.5)
+    pending = [name for variant, name in names.items() if variant not in starts]
+    raise RuntimeError(f"timed out waiting for recording start: {pending}")
+
+
+def docker_timestamp(value):
+    # Docker emits RFC3339Nano; Python 3.9 accepts only 3/6 fractional digits.
+    normalized = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), value.strip())
+    timestamp = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    if timestamp.tzinfo is None:
+        raise ValueError("Docker timestamp must include a timezone")
+    return timestamp.timestamp()
 
 
 def media(args, output, program, *command):
@@ -201,19 +235,24 @@ def recording_coverage(files, observation_seconds):
     return coverage
 
 
-def validate_case_coverage(case, observation_seconds, launch_skew_seconds):
-    for variant in case["variants"].values():
-        variant["coverage"] = recording_coverage(variant["files"], observation_seconds)
+def validate_case_coverage(case, observation_seconds):
+    for name, variant in case["variants"].items():
+        variant["coverage"] = recording_coverage(variant["files"], observation_seconds[name])
         variant["valid"] = variant["valid"] and variant["coverage"]["valid"]
     streams = {}
     for kind in FIXTURE_RATES:
         baseline = case["variants"]["baseline"]["coverage"]["streams"][kind]
         alpine = case["variants"]["alpine"]["coverage"]["streams"][kind]
-        difference = abs(baseline["packet_seconds"] - alpine["packet_seconds"])
-        allowance = VARIANT_ALLOWANCE[kind] + launch_skew_seconds
-        streams[kind] = {"difference_seconds": difference, "allowed_seconds": allowance,
+        raw_difference = baseline["packet_seconds"] - alpine["packet_seconds"]
+        observation_difference = observation_seconds["baseline"] - observation_seconds["alpine"]
+        difference = abs(raw_difference - observation_difference)
+        allowance = VARIANT_ALLOWANCE[kind]
+        streams[kind] = {"difference_seconds": difference,
+                         "raw_difference_seconds": raw_difference,
+                         "observation_difference_seconds": observation_difference,
+                         "allowed_seconds": allowance,
                          "valid": difference <= allowance}
-    comparison = {"launch_skew_seconds": launch_skew_seconds, "streams": streams,
+    comparison = {"streams": streams,
                   "valid": all(s["valid"] for s in streams.values())}
     case["coverage_comparison"] = comparison
     for variant in case["variants"].values():
@@ -234,28 +273,32 @@ def run_case(args, root, network, server, codec, termination, containers):
     )
     wait_for_publisher(publisher, f"rtsp://{server}:8554/live")
     names = {}
-    launch_times = []
     for variant, image in (("baseline", args.baseline), ("alpine", args.candidate)):
         directory = root / label / variant
         directory.mkdir(parents=True)
         name = f"{network}-{label}-{variant}"
         names[variant] = name
         containers.append(name)
-        launch_times.append(time.monotonic())
         docker(
             "run", "-d", "--name", name, "--network", network,
             "--platform", "linux/amd64", "-v", f"{directory}:/videos",
             "-e", f"RTSP_URL=rtsp://{server}:8554/live", "-e", "SEGMENT_TIME=4",
             image,
         )
-    for name in names.values():
-        wait_for(name, "Starting FFmpeg recording...")
+    recording_starts = wait_for_recorders(names)
     observation_start = time.monotonic()
     time.sleep(13)
     running_before_stop = {variant: inspect(name)["State"]["Running"]
                            for variant, name in names.items()}
     publisher_running = inspect(publisher)["State"]["Running"]
-    observation_seconds = time.monotonic() - observation_start
+    monotonic_observation = time.monotonic() - observation_start
+    # Docker's clock matches its log timestamps; host/VM clock offsets must not
+    # shorten a recorder's measured interval and hide missing packets.
+    stop_requested = docker_timestamp(docker("info", "--format", "{{.SystemTime}}").stdout)
+    observation_seconds = {variant: stop_requested - start
+                           for variant, start in recording_starts.items()}
+    if min(observation_seconds.values()) < monotonic_observation - 0.5:
+        raise RuntimeError("Docker timestamps do not cover the monotonic observation window")
     if termination == "input-ended":
         docker("stop", "--time", "10", publisher)
         for name in names.values():
@@ -285,7 +328,7 @@ def run_case(args, root, network, server, codec, termination, containers):
             and exit_code == 0 and not duplicates
             and len(files) >= 3 and all(f["valid"] for f in files),
         }
-    validate_case_coverage(case, observation_seconds, max(launch_times) - min(launch_times))
+    validate_case_coverage(case, observation_seconds)
     print(json.dumps({"case": label, "valid": {
         k: v["valid"] for k, v in case["variants"].items()}}), flush=True)
     return case

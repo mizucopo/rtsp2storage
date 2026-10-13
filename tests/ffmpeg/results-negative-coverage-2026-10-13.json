@@ -355,5 +355,83 @@
       "valid": false
     },
     "rejected": true
+  },
+  "recording-start-skew": {
+    "entrypoint_delay_seconds": 11,
+    "docker_run_response_delay_seconds": 11,
+    "valid": true,
+    "variants": {
+      "baseline": {
+        "files": 7,
+        "valid": true,
+        "coverage": {
+          "observation_seconds": 25.736613988876343,
+          "streams": {
+            "video": {
+              "packets": 639,
+              "packet_seconds": 25.56,
+              "required_seconds": 22.736613988876343,
+              "max_dts_gap": 0.061333000000000026,
+              "allowed_dts_gap": 0.08,
+              "valid": true
+            },
+            "audio": {
+              "packets": 1219,
+              "packet_seconds": 26.005333333333333,
+              "required_seconds": 24.736613988876343,
+              "max_dts_gap": 0.021353999999999873,
+              "allowed_dts_gap": 0.05,
+              "valid": true
+            }
+          },
+          "valid": true
+        }
+      },
+      "alpine": {
+        "files": 4,
+        "valid": true,
+        "coverage": {
+          "observation_seconds": 13.808542966842651,
+          "streams": {
+            "video": {
+              "packets": 339,
+              "packet_seconds": 13.56,
+              "required_seconds": 10.808542966842651,
+              "max_dts_gap": 0.061333,
+              "allowed_dts_gap": 0.08,
+              "valid": true
+            },
+            "audio": {
+              "packets": 659,
+              "packet_seconds": 14.058666666666667,
+              "required_seconds": 12.808542966842651,
+              "max_dts_gap": 0.021334000000000408,
+              "allowed_dts_gap": 0.05,
+              "valid": true
+            }
+          },
+          "valid": true
+        }
+      }
+    },
+    "coverage_comparison": {
+      "streams": {
+        "video": {
+          "difference_seconds": 0.07192897796630682,
+          "raw_difference_seconds": 11.999999999999998,
+          "observation_difference_seconds": 11.928071022033691,
+          "allowed_seconds": 2.5,
+          "valid": true
+        },
+        "audio": {
+          "difference_seconds": 0.01859564463297403,
+          "raw_difference_seconds": 11.946666666666665,
+          "observation_difference_seconds": 11.928071022033691,
+          "allowed_seconds": 1,
+          "valid": true
+        }
+      },
+      "valid": true
+    }
   }
 }

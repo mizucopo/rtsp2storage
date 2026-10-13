@@ -69,10 +69,10 @@ class CoverageTest(unittest.TestCase):
 
 
 class BaselineComparisonTest(unittest.TestCase):
-    def case(self, baseline, alpine, skew=0):
+    def case(self, baseline, alpine, observation=None):
         case = {"variants": {"baseline": {"valid": True, "files": baseline},
                              "alpine": {"valid": True, "files": alpine}}}
-        compare.validate_case_coverage(case, 13, skew)
+        compare.validate_case_coverage(case, observation or {"baseline": 13, "alpine": 13})
         return case
 
     def test_large_disparity_fails_despite_both_absolute_floors_passing(self):
@@ -80,17 +80,18 @@ class BaselineComparisonTest(unittest.TestCase):
         self.assertFalse(case["coverage_comparison"]["valid"])
         self.assertTrue(all(not v["valid"] for v in case["variants"].values()))
 
-    def test_segmentation_and_launch_skew_are_allowed(self):
+    def test_segmentation_and_recording_start_skew_are_allowed(self):
         case = self.case([segment(6), segment(4), segment(3.5)],
                          [segment(4), segment(4), segment(4), segment(0.7)])
         self.assertTrue(all(v["valid"] for v in case["variants"].values()))
-        self.assertTrue(self.case([segment(15)], [segment(13)], skew=1.1)
+        self.assertTrue(self.case([segment(15)], [segment(13)],
+                                 observation={"baseline": 15, "alpine": 13})
                         ["coverage_comparison"]["valid"])
 
     def test_existing_failure_remains_invalid(self):
         case = {"variants": {"baseline": {"valid": False, "files": [segment(13)]},
                              "alpine": {"valid": True, "files": [segment(13)]}}}
-        compare.validate_case_coverage(case, 13, 0)
+        compare.validate_case_coverage(case, {"baseline": 13, "alpine": 13})
         self.assertFalse(case["variants"]["baseline"]["valid"])
 
 

@@ -1,6 +1,7 @@
 """RTSP startup regressions without a camera or Docker daemon."""
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -92,6 +93,44 @@ class ReadinessCleanupTest(unittest.TestCase):
                     self.assertIn(("rm", "-f", name), calls)
                 self.assertTrue(any(args[:2] == ("network", "rm") for args in calls))
                 self.assertEqual(json.loads((output / "report.json").read_text())["cases"], [])
+
+
+class RecorderStartTest(unittest.TestCase):
+    def test_parses_docker_nanosecond_and_variable_precision_timestamps(self):
+        for fraction in ("123456789", "123456", "123", "1", ""):
+            with self.subTest(fraction=fraction):
+                value = "2026-10-13T18:31:03" + ("." + fraction if fraction else "") + "Z"
+                microsecond = int(fraction[:6].ljust(6, "0"))
+                expected = datetime(2026, 10, 13, 18, 31, 3, microsecond, timezone.utc).timestamp()
+                self.assertEqual(compare.docker_timestamp(value), expected)
+        with self.assertRaises(ValueError):
+            compare.docker_timestamp("2026-10-13T18:31:03")
+
+    def test_timestamped_markers_include_starts_before_the_first_poll(self):
+        for starts in ({"baseline": 1, "alpine": 12}, {"baseline": 12, "alpine": 1}):
+            for first_poll in (0, 12):
+                with self.subTest(starts=starts, first_poll=first_poll):
+                    self.check_starts(starts, first_poll)
+
+    def check_starts(self, starts, first_poll):
+        now = first_poll
+
+        def sleep(seconds):
+            nonlocal now
+            now += seconds
+
+        def docker(*args, **kwargs):
+            variant = args[-1]
+            timestamp = datetime.fromtimestamp(starts[variant], timezone.utc).isoformat()
+            marker = f"{timestamp} Starting FFmpeg recording..." if now >= starts[variant] else ""
+            return SimpleNamespace(stdout=marker, stderr="")
+
+        with patch.object(compare, "docker", side_effect=docker), \
+                patch.object(compare, "inspect", return_value={"State": {"Running": True}}), \
+                patch.object(compare.time, "monotonic", side_effect=lambda: now), \
+                patch.object(compare.time, "sleep", side_effect=sleep):
+            observed = compare.wait_for_recorders({name: name for name in starts})
+        self.assertEqual(observed, starts)
 
 
 if __name__ == "__main__":
