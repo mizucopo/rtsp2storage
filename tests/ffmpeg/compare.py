@@ -3,6 +3,7 @@
 
 import argparse
 from collections import Counter
+from datetime import datetime
 import json
 import math
 from pathlib import Path
@@ -12,9 +13,17 @@ import time
 import uuid
 
 
-def docker(*args, check=True):
+# These rates belong to the generated fixtures, not arbitrary camera streams.
+FIXTURE_RATES = {"video": 25, "audio": 48000 / 1024}
+START_STOP_ALLOWANCE = {"video": 3, "audio": 1}  # GOP wait (video) + pipeline drain
+MAX_PACKET_GAP = {"video": 0.08, "audio": 0.05}
+VARIANT_ALLOWANCE = {"video": 2.5, "audio": 1}
+
+
+def docker(*args, check=True, timeout=None):
     return subprocess.run(
-        ["docker", *map(str, args)], text=True, capture_output=True, check=check
+        ["docker", *map(str, args)], text=True, capture_output=True, check=check,
+        timeout=timeout,
     )
 
 
@@ -50,6 +59,66 @@ def wait_for(name, marker, seconds=50):
             raise RuntimeError(f"{name} exited before {marker}: {logs}")
         time.sleep(0.5)
     raise RuntimeError(f"{name}: timed out waiting for {marker}")
+
+
+def wait_for_publisher(name, url, seconds=50):
+    deadline = time.monotonic() + seconds
+
+    def require_running():
+        if not inspect(name)["State"]["Running"]:
+            logs = docker("logs", name)
+            raise RuntimeError(f"{name} exited before RTSP readiness: {logs.stdout}{logs.stderr}")
+
+    while (remaining := deadline - time.monotonic()) > 0:
+        require_running()
+        # Probe the actual path from the publisher's network. Bound both ffprobe
+        # and its Docker client; exec avoids leaving an extra probe container.
+        limit = min(5, remaining)
+        result = docker(
+            "exec", name, "timeout", "-s", "KILL", str(limit), "ffprobe",
+            "-v", "error", "-rtsp_transport", "tcp", "-timeout", "1000000",
+            "-analyzeduration", "1000000", "-read_intervals", "%+0.1",
+            "-show_entries", "packet=stream_index", "-of", "json", url,
+            check=False, timeout=limit + 1,
+        )
+        require_running()
+        if result.returncode == 0 and json.loads(result.stdout).get("packets"):
+            return
+        time.sleep(min(0.5, max(0, deadline - time.monotonic())))
+    raise RuntimeError(f"{name}: timed out waiting for RTSP packets at {url}")
+
+
+def wait_for_recorders(names, seconds=50):
+    deadline = time.monotonic() + seconds
+    starts = {}
+    while time.monotonic() < deadline:
+        # Timestamped markers include recording before the first poll, even if
+        # a Docker launch or the other recorder's preparation was slow.
+        for variant, name in names.items():
+            if variant in starts:
+                continue
+            result = docker("logs", "--timestamps", name)
+            logs = result.stdout + result.stderr
+            if not inspect(name)["State"]["Running"]:
+                raise RuntimeError(f"{name} exited before recording readiness: {logs}")
+            for line in logs.splitlines():
+                if "Starting FFmpeg recording..." in line:
+                    starts[variant] = docker_timestamp(line.split()[0])
+                    break
+        if len(starts) == len(names):
+            return starts
+        time.sleep(0.5)
+    pending = [name for variant, name in names.items() if variant not in starts]
+    raise RuntimeError(f"timed out waiting for recording start: {pending}")
+
+
+def docker_timestamp(value):
+    # Docker emits RFC3339Nano; Python 3.9 accepts only 3/6 fractional digits.
+    normalized = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), value.strip())
+    timestamp = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    if timestamp.tzinfo is None:
+        raise ValueError("Docker timestamp must include a timezone")
+    return timestamp.timestamp()
 
 
 def media(args, output, program, *command):
@@ -116,6 +185,8 @@ def probe_outputs(args, directory, codec):
                     "min_pts": min(pts) if pts else None,
                     "dts_complete": dts_complete, "pts_complete": pts_complete,
                     "monotonic_dts": dts_complete and all(a <= b for a, b in zip(dts, dts[1:])),
+                    "max_dts_gap": max((b - a for a, b in zip(dts, dts[1:])), default=0)
+                    if dts_complete else None,
                     "first_keyframe": bool(packets and "K" in packets[0]["flags"]),
                 })
             decode = media(
@@ -139,6 +210,55 @@ def probe_outputs(args, directory, codec):
     return files
 
 
+def recording_coverage(files, observation_seconds):
+    if not math.isfinite(observation_seconds) or observation_seconds <= 0:
+        raise ValueError("observation_seconds must be finite and positive")
+    coverage = {"observation_seconds": observation_seconds, "streams": {}}
+    for kind, rate in FIXTURE_RATES.items():
+        streams = [s for f in files for s in f.get("streams", []) if s["type"] == kind]
+        packets = sum(s["packets"] for s in streams)
+        gaps = [s.get("max_dts_gap") for s in streams]
+        complete = bool(streams) and all(
+            gap is not None and math.isfinite(gap) for gap in gaps
+        )
+        max_gap = max(gaps) if complete else None
+        packet_seconds = packets / rate
+        required_seconds = max(0, observation_seconds - START_STOP_ALLOWANCE[kind])
+        coverage["streams"][kind] = {
+            "packets": packets, "packet_seconds": packet_seconds,
+            "required_seconds": required_seconds, "max_dts_gap": max_gap,
+            "allowed_dts_gap": MAX_PACKET_GAP[kind],
+            "valid": complete and packet_seconds >= required_seconds
+            and max_gap <= MAX_PACKET_GAP[kind] + 1e-9,
+        }
+    coverage["valid"] = all(s["valid"] for s in coverage["streams"].values())
+    return coverage
+
+
+def validate_case_coverage(case, observation_seconds):
+    for name, variant in case["variants"].items():
+        variant["coverage"] = recording_coverage(variant["files"], observation_seconds[name])
+        variant["valid"] = variant["valid"] and variant["coverage"]["valid"]
+    streams = {}
+    for kind in FIXTURE_RATES:
+        baseline = case["variants"]["baseline"]["coverage"]["streams"][kind]
+        alpine = case["variants"]["alpine"]["coverage"]["streams"][kind]
+        raw_difference = baseline["packet_seconds"] - alpine["packet_seconds"]
+        observation_difference = observation_seconds["baseline"] - observation_seconds["alpine"]
+        difference = abs(raw_difference - observation_difference)
+        allowance = VARIANT_ALLOWANCE[kind]
+        streams[kind] = {"difference_seconds": difference,
+                         "raw_difference_seconds": raw_difference,
+                         "observation_difference_seconds": observation_difference,
+                         "allowed_seconds": allowance,
+                         "valid": difference <= allowance}
+    comparison = {"streams": streams,
+                  "valid": all(s["valid"] for s in streams.values())}
+    case["coverage_comparison"] = comparison
+    for variant in case["variants"].values():
+        variant["valid"] = variant["valid"] and comparison["valid"]
+
+
 def run_case(args, root, network, server, codec, termination, containers):
     label = f"{codec}-{termination}"
     fixture = f"{codec}.mp4"
@@ -151,7 +271,7 @@ def run_case(args, root, network, server, codec, termination, containers):
         "-stream_loop", "-1", "-i", f"/data/{fixture}", "-c", "copy",
         "-f", "rtsp", "-rtsp_transport", "tcp", f"rtsp://{server}:8554/live",
     )
-    time.sleep(2)
+    wait_for_publisher(publisher, f"rtsp://{server}:8554/live")
     names = {}
     for variant, image in (("baseline", args.baseline), ("alpine", args.candidate)):
         directory = root / label / variant
@@ -165,12 +285,20 @@ def run_case(args, root, network, server, codec, termination, containers):
             "-e", f"RTSP_URL=rtsp://{server}:8554/live", "-e", "SEGMENT_TIME=4",
             image,
         )
-    for name in names.values():
-        wait_for(name, "Starting FFmpeg recording...")
+    recording_starts = wait_for_recorders(names)
+    observation_start = time.monotonic()
     time.sleep(13)
     running_before_stop = {variant: inspect(name)["State"]["Running"]
                            for variant, name in names.items()}
     publisher_running = inspect(publisher)["State"]["Running"]
+    monotonic_observation = time.monotonic() - observation_start
+    # Docker's clock matches its log timestamps; host/VM clock offsets must not
+    # shorten a recorder's measured interval and hide missing packets.
+    stop_requested = docker_timestamp(docker("info", "--format", "{{.SystemTime}}").stdout)
+    observation_seconds = {variant: stop_requested - start
+                           for variant, start in recording_starts.items()}
+    if min(observation_seconds.values()) < monotonic_observation - 0.5:
+        raise RuntimeError("Docker timestamps do not cover the monotonic observation window")
     if termination == "input-ended":
         docker("stop", "--time", "10", publisher)
         for name in names.values():
@@ -200,6 +328,7 @@ def run_case(args, root, network, server, codec, termination, containers):
             and exit_code == 0 and not duplicates
             and len(files) >= 3 and all(f["valid"] for f in files),
         }
+    validate_case_coverage(case, observation_seconds)
     print(json.dumps({"case": label, "valid": {
         k: v["valid"] for k, v in case["variants"].items()}}), flush=True)
     return case

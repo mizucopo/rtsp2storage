@@ -1,6 +1,7 @@
 """Regression checks for recorder termination, without Docker or media fixtures."""
 
 import contextlib
+from datetime import datetime, timezone
 import io
 import json
 from pathlib import Path
@@ -11,16 +12,32 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import compare
+from test_coverage import segment
 
 
 class TerminationTest(unittest.TestCase):
-    def run_case(self, running_before_stop, exit_code, logs=""):
+    def run_case(self, running_before_stop, exit_code, logs="", files=None,
+                 baseline_files=None, start_times=None, daemon_offset=0):
         stopped = False
+        now = 0
+
+        def sleep(seconds):
+            nonlocal now
+            now += seconds
+
+        def wait_for_recorders(names):
+            nonlocal now
+            starts = start_times or {"baseline": 0, "alpine": 0}
+            now = max(starts.values())
+            return starts
 
         def docker(*args, **kwargs):
             nonlocal stopped
             if args[0] == "stop":
                 stopped = True
+            if args[0] == "info":
+                return SimpleNamespace(stdout=datetime.fromtimestamp(now + daemon_offset, timezone.utc).isoformat(),
+                                       stderr="")
             return SimpleNamespace(stdout=logs if args[0] == "logs" else "", stderr="")
 
         def inspect(name):
@@ -29,9 +46,14 @@ class TerminationTest(unittest.TestCase):
 
         with patch.object(compare, "docker", side_effect=docker), \
                 patch.object(compare, "inspect", side_effect=inspect), \
-                patch.object(compare, "wait_for"), \
-                patch.object(compare, "probe_outputs", return_value=[{"valid": True}] * 3), \
-                patch.object(compare.time, "sleep"), contextlib.redirect_stdout(io.StringIO()):
+                patch.object(compare, "wait_for_recorders", side_effect=wait_for_recorders), \
+                patch.object(compare, "wait_for_publisher"), \
+                patch.object(compare, "probe_outputs", side_effect=[
+                    baseline_files or files or [segment(4.5)] * 3,
+                    files or [segment(4.5)] * 3]), \
+                patch.object(compare.time, "monotonic", side_effect=lambda: now), \
+                patch.object(compare.time, "sleep", side_effect=sleep), \
+                contextlib.redirect_stdout(io.StringIO()):
             return compare.run_case(
                 SimpleNamespace(baseline="baseline", candidate="alpine"),
                 MagicMock(), "network", "server", "h264", "input-ended", [],
@@ -46,6 +68,26 @@ class TerminationTest(unittest.TestCase):
     def test_running_recorder_then_clean_exit_passes(self):
         case = self.run_case(True, 0)
         self.assertTrue(all(v["valid"] for v in case["variants"].values()))
+
+    def test_running_recorder_with_three_short_valid_files_fails(self):
+        case = self.run_case(True, 0, files=[segment(0.4)] * 3)
+        self.assertTrue(all(not v["valid"] for v in case["variants"].values()))
+
+    def test_different_recording_start_times_are_normalized(self):
+        case = self.run_case(True, 0, files=[segment(3.25)] * 4,
+                             baseline_files=[segment(6)] * 4,
+                             start_times={"baseline": 1, "alpine": 12})
+        self.assertTrue(all(v["valid"] for v in case["variants"].values()))
+        self.assertEqual(case["variants"]["baseline"]["coverage"]["observation_seconds"], 24)
+
+    def test_pre_observation_packets_cannot_hide_a_later_stall(self):
+        case = self.run_case(True, 0, files=[segment(3.25)] * 4,
+                             start_times={"baseline": 1, "alpine": 12})
+        self.assertFalse(case["variants"]["baseline"]["valid"])
+
+    def test_docker_clock_cannot_shorten_the_observed_interval(self):
+        with self.assertRaisesRegex(RuntimeError, "monotonic observation window"):
+            self.run_case(True, 0, daemon_offset=-2)
 
     def test_overwritten_segments_cannot_pass_with_valid_remaining_files(self):
         opening = "[segment] Opening '/videos/2026/10/13/120000.mp4' for writing\n"
