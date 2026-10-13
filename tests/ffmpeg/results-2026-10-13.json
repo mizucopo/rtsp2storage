@@ -1,0 +1,870 @@
+{
+  "segment_time": 4,
+  "platform": "linux/amd64",
+  "cases": [
+    {
+      "codec": "h264",
+      "termination": "input-ended",
+      "variants": {
+        "baseline": {
+          "exit_code": 0,
+          "files": [
+            {
+              "path": "2026/10/13/173654.mp4",
+              "bytes": 287713,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 100,
+                  "first_dts": -0.000333,
+                  "last_dts": 3.981,
+                  "min_pts": 0.101,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            },
+            {
+              "path": "2026/10/13/173706.mp4",
+              "bytes": 49321,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 0.701322,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 17,
+                  "first_dts": -0.101322,
+                  "last_dts": 0.56,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            }
+          ],
+          "valid": false
+        },
+        "alpine": {
+          "exit_code": 0,
+          "files": [
+            {
+              "path": "2026/10/13/173654.mp4",
+              "bytes": 539709,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 6.594,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 150,
+                  "first_dts": 0.492667,
+                  "last_dts": 6.474,
+                  "min_pts": 0.594,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 306,
+                  "first_dts": 0.0,
+                  "last_dts": 6.496,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173659.mp4",
+              "bytes": 360808,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 100,
+                  "first_dts": -0.08,
+                  "last_dts": 3.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 188,
+                  "first_dts": -0.077354,
+                  "last_dts": 3.911979,
+                  "min_pts": -0.077354,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173703.mp4",
+              "bytes": 175899,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 2.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 50,
+                  "first_dts": -0.08,
+                  "last_dts": 1.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 94,
+                  "first_dts": -0.066687,
+                  "last_dts": 1.917312,
+                  "min_pts": -0.066687,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173705.mp4",
+              "bytes": 64407,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 0.803,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 17,
+                  "first_dts": -0.101322,
+                  "last_dts": 0.56,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 42,
+                  "first_dts": -0.082687,
+                  "last_dts": 0.781312,
+                  "min_pts": -0.082687,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            }
+          ],
+          "valid": true
+        }
+      }
+    },
+    {
+      "codec": "h264",
+      "termination": "docker-stop",
+      "variants": {
+        "baseline": {
+          "exit_code": 137,
+          "files": [
+            {
+              "path": "2026/10/13/173720.mp4",
+              "bytes": 287761,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.000011,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 100,
+                  "first_dts": -0.000333,
+                  "last_dts": 3.981011,
+                  "min_pts": 0.101,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            },
+            {
+              "path": "2026/10/13/173734.mp4",
+              "bytes": 302671,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 100,
+                  "first_dts": -0.08,
+                  "last_dts": 3.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            },
+            {
+              "path": "2026/10/13/173738.mp4",
+              "bytes": 48,
+              "probe_exit": 1,
+              "errors": "[mov,mp4,m4a,3gp,3g2,mj2 @ 0x7ffffce57380] moov atom not found\n/data/2026/10/13/173738.mp4: Invalid data found when processing input\n",
+              "valid": false
+            }
+          ],
+          "valid": false
+        },
+        "alpine": {
+          "exit_code": 137,
+          "files": [
+            {
+              "path": "2026/10/13/173720.mp4",
+              "bytes": 545985,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 6.977989,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 150,
+                  "first_dts": 0.876667,
+                  "last_dts": 6.857989,
+                  "min_pts": 0.978,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 324,
+                  "first_dts": 0.0,
+                  "last_dts": 6.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173726.mp4",
+              "bytes": 360808,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 100,
+                  "first_dts": -0.08,
+                  "last_dts": 3.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 188,
+                  "first_dts": -0.077333,
+                  "last_dts": 3.912,
+                  "min_pts": -0.077333,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173730.mp4",
+              "bytes": 175899,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 2.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 50,
+                  "first_dts": -0.08,
+                  "last_dts": 1.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 94,
+                  "first_dts": -0.066667,
+                  "last_dts": 1.917333,
+                  "min_pts": -0.066667,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173732.mp4",
+              "bytes": 354550,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 100,
+                  "first_dts": -0.101322,
+                  "last_dts": 3.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 189,
+                  "first_dts": -0.082646,
+                  "last_dts": 3.917354,
+                  "min_pts": -0.082646,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173736.mp4",
+              "bytes": 368949,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "h264",
+                  "packets": 100,
+                  "first_dts": -0.08,
+                  "last_dts": 3.88,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 187,
+                  "first_dts": -0.061312,
+                  "last_dts": 3.906667,
+                  "min_pts": -0.061312,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173740.mp4",
+              "bytes": 48,
+              "probe_exit": 1,
+              "errors": "[mov,mp4,m4a,3gp,3g2,mj2 @ 0x7ffffce57380] moov atom not found\n/data/2026/10/13/173740.mp4: Invalid data found when processing input\n",
+              "valid": false
+            }
+          ],
+          "valid": false
+        }
+      }
+    },
+    {
+      "codec": "hevc",
+      "termination": "input-ended",
+      "variants": {
+        "baseline": {
+          "exit_code": 0,
+          "files": [
+            {
+              "path": "2026/10/13/173801.mp4",
+              "bytes": 180544,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 5.959978,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 150,
+                  "first_dts": 0.0,
+                  "last_dts": 5.959978,
+                  "min_pts": 0.079978,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            },
+            {
+              "path": "2026/10/13/173814.mp4",
+              "bytes": 25046,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 0.68,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 18,
+                  "first_dts": -0.12,
+                  "last_dts": 0.56,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            }
+          ],
+          "valid": false
+        },
+        "alpine": {
+          "exit_code": 0,
+          "files": [
+            {
+              "path": "2026/10/13/173801.mp4",
+              "bytes": 291966,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 6.815989,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 150,
+                  "first_dts": 0.736,
+                  "last_dts": 6.695989,
+                  "min_pts": 0.815989,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 316,
+                  "first_dts": 0.0,
+                  "last_dts": 6.72,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173807.mp4",
+              "bytes": 89612,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 2.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 51,
+                  "first_dts": -0.12,
+                  "last_dts": 1.88,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 96,
+                  "first_dts": -0.114687,
+                  "last_dts": 1.911979,
+                  "min_pts": -0.114687,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173809.mp4",
+              "bytes": 173876,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 3.96,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 99,
+                  "first_dts": -0.101322,
+                  "last_dts": 3.840011,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 187,
+                  "first_dts": -0.088,
+                  "last_dts": 3.869333,
+                  "min_pts": -0.088,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173813.mp4",
+              "bytes": 41371,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 0.85,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 18,
+                  "first_dts": -0.12,
+                  "last_dts": 0.56,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 45,
+                  "first_dts": -0.109354,
+                  "last_dts": 0.829313,
+                  "min_pts": -0.109354,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            }
+          ],
+          "valid": true
+        }
+      }
+    },
+    {
+      "codec": "hevc",
+      "termination": "docker-stop",
+      "variants": {
+        "baseline": {
+          "exit_code": 137,
+          "files": [
+            {
+              "path": "2026/10/13/173828.mp4",
+              "bytes": 107736,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 3.96,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 99,
+                  "first_dts": -0.000333,
+                  "last_dts": 3.941,
+                  "min_pts": 0.101,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            },
+            {
+              "path": "2026/10/13/173842.mp4",
+              "bytes": 125364,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 3.96,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 100,
+                  "first_dts": -0.12,
+                  "last_dts": 3.84,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            },
+            {
+              "path": "2026/10/13/173846.mp4",
+              "bytes": 110497,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 4.0,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 101,
+                  "first_dts": -0.12,
+                  "last_dts": 3.88,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": false
+            },
+            {
+              "path": "2026/10/13/173850.mp4",
+              "bytes": 44,
+              "probe_exit": 1,
+              "errors": "[mov,mp4,m4a,3gp,3g2,mj2 @ 0x7ffffce57380] moov atom not found\n/data/2026/10/13/173850.mp4: Invalid data found when processing input\n",
+              "valid": false
+            }
+          ],
+          "valid": false
+        },
+        "alpine": {
+          "exit_code": 137,
+          "files": [
+            {
+              "path": "2026/10/13/173828.mp4",
+              "bytes": 270430,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 6.367,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 149,
+                  "first_dts": 0.305667,
+                  "last_dts": 6.247,
+                  "min_pts": 0.407,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 296,
+                  "first_dts": 0.0,
+                  "last_dts": 6.282667,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173834.mp4",
+              "bytes": 188430,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 3.96,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 100,
+                  "first_dts": -0.12,
+                  "last_dts": 3.84,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 187,
+                  "first_dts": -0.103854,
+                  "last_dts": 3.864146,
+                  "min_pts": -0.103854,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173838.mp4",
+              "bytes": 89652,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 2.001,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 51,
+                  "first_dts": -0.12,
+                  "last_dts": 1.880011,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 96,
+                  "first_dts": -0.114521,
+                  "last_dts": 1.912146,
+                  "min_pts": -0.114521,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173840.mp4",
+              "bytes": 173860,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 3.96,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 99,
+                  "first_dts": -0.101322,
+                  "last_dts": 3.84,
+                  "min_pts": 0.0,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 187,
+                  "first_dts": -0.087854,
+                  "last_dts": 3.869479,
+                  "min_pts": -0.087854,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173844.mp4",
+              "bytes": 191657,
+              "probe_exit": 0,
+              "errors": "",
+              "duration": 3.96,
+              "streams": [
+                {
+                  "type": "video",
+                  "codec": "hevc",
+                  "packets": 100,
+                  "first_dts": -0.12,
+                  "last_dts": 3.84,
+                  "min_pts": -0.04,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                },
+                {
+                  "type": "audio",
+                  "codec": "aac",
+                  "packets": 187,
+                  "first_dts": -0.109187,
+                  "last_dts": 3.858792,
+                  "min_pts": -0.109187,
+                  "monotonic_dts": true,
+                  "first_keyframe": true
+                }
+              ],
+              "decode_exit": 0,
+              "valid": true
+            },
+            {
+              "path": "2026/10/13/173848.mp4",
+              "bytes": 44,
+              "probe_exit": 1,
+              "errors": "[mov,mp4,m4a,3gp,3g2,mj2 @ 0x7ffffce57380] moov atom not found\n/data/2026/10/13/173848.mp4: Invalid data found when processing input\n",
+              "valid": false
+            }
+          ],
+          "valid": false
+        }
+      }
+    }
+  ],
+  "images": {
+    "baseline": {
+      "reference": "rtsp2storage-issue30-baseline:local",
+      "id": "sha256:e6deeb7b260f7571b8b509591cac924341acb03b3104364f16896d15cb250203",
+      "architecture": "amd64"
+    },
+    "alpine": {
+      "reference": "rtsp2storage-issue30-alpine:local",
+      "id": "sha256:9698a153f9cf2b1dfca64f1fbd61f90f9a4600ac15fc024d40bc004b108d9b8b",
+      "architecture": "amd64"
+    },
+    "server": {
+      "reference": "bluenviron/mediamtx@sha256:c7540465f868a02652118bea5a0daab12a29ac0f6cb8485abd535939ecddf886",
+      "id": "sha256:c7540465f868a02652118bea5a0daab12a29ac0f6cb8485abd535939ecddf886",
+      "architecture": "arm64"
+    }
+  }
+}
