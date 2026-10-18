@@ -56,6 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_prerelease: ${{ steps.metadata.outputs.is_prerelease }}
+      has_latest_image: ${{ steps.metadata.outputs.has_latest_image }}
     env:
       RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
       DOCKERHUB_USERNAME: "mizucopo"
@@ -87,6 +88,8 @@ jobs:
         run: |
           is_prerelease="$(jq -er '.publication.is_prerelease | select(type == "boolean") | tostring' "$RELEASE_PLAN_OUTPUT")"
           echo "is_prerelease=$is_prerelease" >> "$GITHUB_OUTPUT"
+          has_latest_image="$(jq -er '.publication.latest_image != null | tostring' "$RELEASE_PLAN_OUTPUT")"
+          echo "has_latest_image=$has_latest_image" >> "$GITHUB_OUTPUT"
       - name: Inspect GitHub Release
         id: release-state
         env:
@@ -185,6 +188,15 @@ jobs:
                 echo "::error::GitHub Release $TAG returned invalid release metadata."
                 exit 1
               fi
+              if [ "$release_is_draft" = "false" ]; then
+                if ! planned_prerelease="$(jq -er '.publication.is_prerelease | select(type == "boolean") | tostring' "${RELEASE_PLAN_OUTPUT:-}")" \
+                  || ! jq -e --argjson prerelease "$planned_prerelease" \
+                    '(.prerelease | type == "boolean") and .prerelease == $prerelease' \
+                    "$RELEASE_RESPONSE" > /dev/null; then
+                  echo "::error::Published GitHub Release classification differs from publication plan."
+                  exit 1
+                fi
+              fi
             fi
           fi
 
@@ -249,6 +261,7 @@ jobs:
       - name: Verify existing image ownership
         if: steps.image-state.outputs.version_exists == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.image-state.outputs.image_tag }}
         run: bash .github/scripts/manage-docker-image-owner.sh verify "$TAG"
       - name: Build and validate native image
@@ -284,10 +297,7 @@ jobs:
       - name: Verify published image
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          : > "$RUNNER_TEMP/image-state"
-          GITHUB_OUTPUT="$RUNNER_TEMP/image-state" python3 -I .github/scripts/release.py image-state
-          grep -qx version_exists=true "$RUNNER_TEMP/image-state"
+        run: python3 -I .github/scripts/release.py image-verify
       - name: Create GitHub Release
         id: create-release
         if: steps.release-state.outputs.release_exists != 'true'
@@ -295,6 +305,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.release_tag }}
           IS_PRERELEASE: ${{ steps.metadata.outputs.is_prerelease }}
+          RELEASE_DRAFT: "true"
         run: python3 -I .github/scripts/release.py create
 
       - name: Add release downloads
@@ -306,7 +317,7 @@ jobs:
 
   promote-latest:
     needs: [prepare, release]
-    if: needs.prepare.outputs.publish == 'true' && needs.release.outputs.is_prerelease == 'false'
+    if: needs.prepare.outputs.publish == 'true' && needs.release.outputs.is_prerelease == 'false' && needs.release.outputs.has_latest_image == 'true'
     runs-on: ubuntu-latest
     env:
       RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
@@ -353,3 +364,34 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.latest-state.outputs.release_tag }}
         run: gh release edit "$TAG" --latest
+
+  cleanup-image-owners:
+    needs: [prepare, release, promote-latest]
+    if: ${{ !cancelled() && needs.prepare.outputs.publish == 'true' && needs.release.result == 'success' && (needs.promote-latest.result == 'success' || needs.promote-latest.result == 'skipped') }}
+    permissions:
+      contents: write
+      actions: read
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+      DOCKERHUB_USERNAME: "mizucopo"
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_TOKEN }}
+    steps:
+      - name: Checkout numbering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Verify numbering commit and read publication data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          export RELEASE_PLAN_OUTPUT="$RUNNER_TEMP/release-plan.json"
+          printf 'RELEASE_PLAN_OUTPUT=%s\n' "$RELEASE_PLAN_OUTPUT" >> "$GITHUB_ENV"
+          python3 -I .github/scripts/release.py plan
+
+      - name: Retain image digests and remove completed ownership markers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I .github/scripts/release.py image-owner-complete
