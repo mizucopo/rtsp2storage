@@ -14,7 +14,7 @@ ENTRYPOINT = Path(__file__).resolve().parents[2] / "docker" / "ffmpeg.sh"
 
 
 class ShutdownTest(unittest.TestCase):
-    def run_entrypoint(self, stop_signal=None, child_exit=None):
+    def run_entrypoint(self, stop_signal=None, child_exit=None, signal_on_start=False):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             binary = root / "bin"
@@ -35,10 +35,13 @@ def finish(signum, frame):
     (root / "received").write_text(str(signum))
     time.sleep(0.2)
     (root / "finalized").write_text("finalized")
+    print("Finalized input " + os.environ["RTSP_URL"], file=sys.stderr, flush=True)
     sys.exit(0)
 signal.signal(signal.SIGTERM, finish)
 (root / "child_pid").write_text(str(os.getpid()))
 (root / "ready").touch()
+if "SIGNAL_ON_START" in os.environ:
+    os.kill(os.getppid(), signal.SIGTERM)
 if "CHILD_EXIT" in os.environ:
     sys.exit(int(os.environ["CHILD_EXIT"]))
 while True:
@@ -50,8 +53,10 @@ while True:
                 path.write_text(contents)
                 path.chmod(0o755)
             env = {**os.environ, "PATH": f"{binary}:{os.defpath}",
-                   "RTSP_URL": "rtsp://fixture/live", "SEGMENT_TIME": "4",
+                   "RTSP_URL": "rtsp://dummy-user:dummy-password@fixture/live", "SEGMENT_TIME": "4",
                    "FIXTURE_ROOT": str(root)}
+            if signal_on_start:
+                env["SIGNAL_ON_START"] = "1"
             if child_exit is not None:
                 env["CHILD_EXIT"] = str(child_exit)
             process = subprocess.Popen(
@@ -83,6 +88,16 @@ while True:
                 code, finalized, output = self.run_entrypoint(stop_signal=stop_signal)
                 self.assertEqual(code, 0, output)
                 self.assertTrue(finalized, "entrypoint exited before the child's finalizer")
+                self.assertIn("Finalized input [REDACTED]", output)
+                self.assertNotIn("dummy-user", output)
+                self.assertNotIn("dummy-password", output)
+
+    def test_signal_immediately_on_child_start_does_not_hang(self):
+        code, finalized, output = self.run_entrypoint(signal_on_start=True)
+        self.assertEqual(code, 0, output)
+        self.assertTrue(finalized)
+        self.assertIn("Finalized input [REDACTED]", output)
+        self.assertNotIn("dummy-password", output)
 
     def test_child_failure_is_preserved(self):
         code, _, output = self.run_entrypoint(child_exit=17)

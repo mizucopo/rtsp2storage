@@ -33,6 +33,9 @@ docker run --rm -d \
 docker logs -f rtsp2storage
 ```
 
+接続先 URL は、FFmpeg の診断を含めてログでは `[REDACTED]` に置き換えます。
+接続の成功・失敗、録画の進捗、エラーの原因は引き続き確認できます。
+
 録画を停止するには、コンテナを停止します。
 
 ```sh
