@@ -1,7 +1,7 @@
 # rtsp2storage
 
-- Preserve the FFmpeg source build, recording script, Asia/Tokyo timezone, and
-  Docker Compose services during template updates.
+- Preserve the use of Alpine's `ffmpeg` package, the recording script,
+  the Asia/Tokyo timezone, and Docker Compose services during template updates.
 - The root Docker build context permits only `Dockerfile` and
   `docker/ffmpeg.sh`. Keep `docker/**` excluded before allowing the entrypoint.
 - Release workflows accept `DOCKER_TOKEN` as the existing fallback for
